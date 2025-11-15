@@ -1,0 +1,21 @@
+/*
+ * Copyright (c) 2025 HU Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+ #include "jz_f407ve_dvk.dts"
+
+/ {
+	model = "JZ STM32F407VET6 Development board";
+	compatible = "jz,stm32f407ve-dvk-mcuboot";
+
+	chosen {
+		zephyr,code-partition = &boot_partition;
+	};
+
+	aliases {
+		mcuboot-led0 = &red_led_0;
+		mcuboot-button0 = &button0;
+	};
+};

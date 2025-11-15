@@ -1,0 +1,24 @@
+#include <arm/armv8.1-m.dtsi>
+#include <zephyr/dt-bindings/clock/stm32n6_clock.h>
+#include <freq.h>
+
+/ {
+	soc {
+		rtc: rtc@56004000 {
+			compatible = "st,stm32-rtc";
+			reg = <0x56004000 0x400>;
+			interrupts = <16 0>; /* RTC_S_IRQn: 10 */
+			clocks = <&rcc STM32_CLOCK(APB4, 16U)>, <&rcc STM32_SRC_LSE RTC_SEL(1)>;
+			prescaler = <32768>;
+			alarms-count = <2>;
+			alrm-exti-line = <31>;
+			status = "disabled";
+
+			bbram: backup_regs {
+				compatible = "st,stm32-bbram";
+				st,backup-regs = <32>;
+				status = "disabled";
+			};
+		};
+	};
+};

@@ -1,0 +1,8 @@
+board:
+  name: jz_f407ve_dvk
+  full_name: JZ F407VE_DevelopKit
+  vendor: hm
+  socs:
+    - name: stm32f407xx
+      variants:
+        - name: mcuboot

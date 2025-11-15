@@ -1,0 +1,23 @@
+#
+# Copyright (c) 2025 HU Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+# This file is sourced by the MCUboot sample Kconfig file
+# See [mcuboot_dir]/boot/zephyr/Kconfig
+
+config BOOT_USE_MIN_PARTITION_SIZE
+	bool "Build for a minimal image size"
+
+partition=MCUBOOT_SCRATCH
+
+# disabled for reduce footprint
+config BOOT_SERIAL_IMG_GRP_HASH
+	bool
+	default n
+
+# disabled for reduce footprint
+config BOOT_SERIAL_IMG_GPR_SLOT_INFO
+	bool
+	default n

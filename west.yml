@@ -1,0 +1,47 @@
+# Copyright (c) 2021 Nordic Semiconductor ASA
+# SPDX-License-Identifier: Apache-2.0
+
+manifest:
+  defaults:
+    remote: upstream
+  self:
+    path: sdk
+    west-commands: scripts/west-commands.yml
+    import: submanifests
+
+  remotes:
+    - name: upstream
+      url-base: https://github.com/zephyrproject-rtos
+    - name: babblesim
+      url-base: https://github.com/BabbleSim
+
+  group-filter: [-babblesim, -optional]
+
+  projects:
+    - name: zephyr
+      remote: upstream
+      revision: main
+      import:
+        # By using name-allowlist we can clone only the modules that are
+        # strictly needed by the application.
+        name-allowlist:
+          - cmsis
+          - cmsis-dsp
+          - cmsis-nn
+          - cmsis_6
+          - hal_st
+          - hal_stm32
+          - littlefs
+          - lvgl
+          - mbedtls
+          - mcuboot
+          - percepio
+          - picolibc
+          - segger
+          - tinycrypt
+          - zcbor
+
+    - name: etc-data
+      url: http://github.com/doyoonk/etcz.git
+      revision: main
+      path: etc

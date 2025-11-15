@@ -1,0 +1,26 @@
+#
+# Copyright (c) 2025 HU Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+# Enable MPU
+CONFIG_ARM_MPU=y
+
+# Enable HW stack protection
+CONFIG_HW_STACK_PROTECTION=y
+
+# Enable UART
+CONFIG_SERIAL=y
+
+# console
+CONFIG_CONSOLE=y
+CONFIG_UART_CONSOLE=y
+
+# enable GPIO
+CONFIG_GPIO=y
+
+# boot loader : for opspro_n6
+CONFIG_BOOTLOADER_MCUBOOT=y
+CONFIG_MCUBOOT_SIGNATURE_KEY_FILE="etc/ssl/certs/mcuboot_sign-rsa-2048.pem"
+CONFIG_MCUBOOT_GENERATE_CONFIRMED_IMAGE=y
