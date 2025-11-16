@@ -1,0 +1,17 @@
+#
+# Copyright (c) 2025 HU Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+if BOARD_JZ_F407VE_DVK
+
+if NETWORKING
+
+config NET_L2_ETHERNET
+	default y
+
+endif # NETWORKING
+
+endif # BOARD_JZ_F407VE_DVK
+

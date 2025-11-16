@@ -1,0 +1,11 @@
+#
+# Copyright (c) 2025 HU Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+VERSION_MAJOR = 1
+VERSION_MINOR = 0
+PATCHLEVEL = 2
+VERSION_TWEAK = 0
+EXTRAVERSION =

@@ -1,0 +1,12 @@
+#
+# Copyright (c) 2025 HU Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+menu "MCUboot"
+
+if BOOTLOADER_MCUBOOT
+endif # BOOTLOADER_MCUBOOT
+
+endmenu

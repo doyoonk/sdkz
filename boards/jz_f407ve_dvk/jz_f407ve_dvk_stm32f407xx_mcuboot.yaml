@@ -1,0 +1,22 @@
+#
+# Copyright (c) 2025 HU Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+identifier: jz_f407ve_dvk/stm32f407xx/mcuboot
+name: JZ F407VE_DEVELOPKIT - MCUboot
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+  - gnuarmemb
+ram: 192
+flash: 65536
+supported:
+  - gpio
+  - rtc
+  - uart
+  - usb_device
+  - usbd
+vendor: hu

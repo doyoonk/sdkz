@@ -1,0 +1,8 @@
+#
+# Copyright (c) 2025 HU Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+config BOARD_JZ_F407VE_DVK
+	select SOC_STM32F407XE

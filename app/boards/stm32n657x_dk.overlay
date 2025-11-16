@@ -1,0 +1,18 @@
+/*
+ * Copyright (c) 2025 HU Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+ / {
+	example_sensor: example-sensor {
+		compatible = "zephyr,example-sensor";
+		input-gpios = <&gpioa 6 GPIO_ACTIVE_HIGH>;
+	};
+
+	blink_led: blink-led {
+		compatible = "blink-gpio-led";
+		led-gpios = <&gpiog 10 GPIO_ACTIVE_HIGH>;
+		blink-period-ms = <1000>;
+	};
+};

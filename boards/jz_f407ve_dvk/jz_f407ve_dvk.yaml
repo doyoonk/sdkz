@@ -1,0 +1,28 @@
+#
+# Copyright (c) 2025 HU Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+identifier: jz_f407ve_dvk
+name: JZ F407VE_DEVELOPKIT
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+  - gnuarmemb
+ram: 192
+flash: 512
+supported:
+  - adc
+  - counter
+  - dma
+  - i2c
+  - gpio
+  - netif:eth
+  - rtc
+  - spi
+  - uart
+  - usb_device
+  - usbd
+vendor: hu
