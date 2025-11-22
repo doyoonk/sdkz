@@ -1,12 +1,5 @@
 # Zephyr sdk for Application
 
-<a href="https://github.com/doyoonk/sdkz/actions/workflows/build.yml?query=branch%3Amain">
-  <img src="https://github.com/doyoonk/sdkz/actions/workflows/build.yml/badge.svg?event=push">
-</a>
-<a href="https://github.com/doyoonk/sdkz/actions/workflows/docs.yml?query=branch%3Amain">
-  <img src="https://github.com/doyoonk/sdkz/actions/workflows/docs.yml/badge.svg?event=push">
-</a>
-
 This repository is forked from a Zephyr example application.
 The main purpose of this repository is to serve as a reference on how to structure Zephyr-based
 applications. Some of the features demonstrated in this example are:
@@ -48,9 +41,9 @@ the ``sdk`` and all Zephyr modules will be cloned. Run the following
 command:
 
 ```shell
-# Create a new virtual environment and activate: -Windows
-python3 -m venv ~/sdkz/.venv && . ~/sdkz/.venv/bin/activate
 # Create a new virtual environment and activate: -linux/MacOS
+python3 -m venv ~/sdkz/.venv && . ~/sdkz/.venv/bin/activate
+# Create a new virtual environment and activate: -Windows
 cd %HOMEPATH%
 python -m venv sdkz\.venv && .\sdkz\.venv\Scripts\activate
 # initialize sdkz for the sdk for zephyr application (main branch)
