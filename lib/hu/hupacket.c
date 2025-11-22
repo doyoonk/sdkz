@@ -38,6 +38,8 @@
 LOG_MODULE_REGISTER(hup, CONFIG_LOG_DEFAULT_LEVEL);
 
 #include <string.h>
+#include <stdlib.h>
+extern char* itoa (int value, char *str,int base);
 
 #define HUP_STATE_NONE         -1
 
@@ -52,7 +54,7 @@ LOG_MODULE_REGISTER(hup, CONFIG_LOG_DEFAULT_LEVEL);
 #define PRESET_VALUE	0x0000
 
 
-void init_hupacket(struct hup_handle* h, void* user_data, send_func send)
+void init_hupacket(struct hup_handle* h, send_func send, void* user_data)
 {
 	memset(h, 0, sizeof(struct hup_handle));
 	reset_hupacket(h);
@@ -91,9 +93,9 @@ static void process_data(struct hup_handle* h)
 
 	STRUCT_SECTION_FOREACH(hup_cmd, cmd)
 	{
-		if (strcmp(cmd, h->argv[0]) == 0)
+		if (strcmp(cmd->cmd, h->argv[0]) == 0)
 		{
-			reset_txbuffer(h);
+			hupacket_reset_txbuffer(h);
 			cmd->func(h, crc_matched, h->user_data);
 			break;
 		}
@@ -108,7 +110,6 @@ void reset_hupacket(struct hup_handle* h)
 	h->crc16 = false;
 	h->id = NULL;
     h->sequence = NULL;
-	h->tx_length = 0;
 }
 
 void process_hupacket(struct hup_handle* h, uint8_t* data, size_t data_len)
@@ -143,7 +144,7 @@ void process_hupacket(struct hup_handle* h, uint8_t* data, size_t data_len)
 				if (h->state < sizeof(h->buffer))
 					h->buffer[h->state ++] = ch;
 				else
-					reset_hup(h);
+					reset_hupacket(h);
 				break;
 			}
 		}
@@ -152,7 +153,6 @@ void process_hupacket(struct hup_handle* h, uint8_t* data, size_t data_len)
 
 void hupacket_reset_txbuffer(struct hup_handle* h)
 {
-	h->tx_length = 0;
 	h->tx_buffer[0] = '\0';
 	if (h->id)
 	{
@@ -182,15 +182,17 @@ void hupacket_append_char(struct hup_handle* h, char* buffer, const char ch)
 void hupacket_append_int(struct hup_handle* h, char* buffer, const int val)
 {
 	char buf[12];	// -2147483647\x00
-	itoa(val, buf, 10);
-	hupacket_append_str(h, buffer, buf);
+	char* ptr = itoa(val, buf, 10);
+	if (ptr != NULL)
+		hupacket_append_str(h, buffer, buf);
 }
 
 void hupacket_append_hex(struct hup_handle* h, char* buffer, const int val)
 {
 	char buf[9];	// FFFFFFFF\x00
-	itoa(val, buf, 16);
-	hupacket_append_str(h, buffer, buf);
+	char* ptr = itoa(val, buf, 16);
+	if (ptr != NULL)
+		hupacket_append_str(h, buffer, buf);
 }
 
 

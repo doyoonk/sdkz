@@ -10,7 +10,7 @@
 #include <zephyr/net/socket.h>
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_DECLARE(net_echo_server_sample, LOG_LEVEL_DBG);
+LOG_MODULE_DECLARE(app, CONFIG_LOG_DEFAULT_LEVEL);
 
 #include <errno.h>
 #include <stdio.h>
@@ -78,8 +78,8 @@ static void hup_udp_thread(void* arg1, void* arg2, void* arg3)
 	if (ret < 0)
 		return;
 
-	hup_init(&data->h, udp_send, arg1);
-	data->client_len = sizeof(data.client);
+	init_hupacket(&data->h, udp_send, arg1);
+	data->client_len = sizeof(data->client);
 	while (1)
 	{
 		received = recvfrom(data->data.sock, data->data.buffer, sizeof(data->data.buffer), 0,

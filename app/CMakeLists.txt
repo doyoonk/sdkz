@@ -14,6 +14,5 @@ target_sources(app PRIVATE
     src/main.c
     src/pwmleds.c
     src/settings.c
+    src/udp.c
 )
-
-zephyr_linker_sources(DATA_SECTIONS iterables.ld)
