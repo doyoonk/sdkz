@@ -6,6 +6,13 @@
  */
 
 #include <zephyr/net/net_if.h>
+#include <hu/common.h>
+
+struct net_data {
+    int sock;
+    bool connected; // for tcp
+    char buffer[CONFIG_HU_PACKET_SIZE];
+};
 
 #if defined(CONFIG_NET_CONNECTION_MANAGER)
 void wait_for_network(void);

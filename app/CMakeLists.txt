@@ -11,6 +11,7 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(app LANGUAGES C)
 
 target_sources(app PRIVATE
+    src/hupacket_udp.c
     src/main.c
     src/pwmleds.c
     src/settings.c

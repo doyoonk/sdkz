@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 TiaC Systems
+ * Copyright (c) 2025 HU Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */

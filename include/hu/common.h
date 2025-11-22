@@ -18,15 +18,11 @@
 extern "C" {
 #endif
 
+
 #ifndef CONFIG_HU_PACKET_SIZE
 #define CONFIG_HU_PACKET_SIZE   1530
 #endif
 
-struct hu_data {
-    int sock;
-    bool connected; // for tcp
-    char buffer[CONFIG_HU_PACKET_SIZE];
-};
 
 #ifdef __cplusplus
 }
