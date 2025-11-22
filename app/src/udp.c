@@ -8,6 +8,8 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/net/socket.h>
+#include <zephyr/posix/sys/socket.h>
+#include <zephyr/posix/unistd.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(app, CONFIG_LOG_DEFAULT_LEVEL);
@@ -20,7 +22,7 @@ LOG_MODULE_DECLARE(app, CONFIG_LOG_DEFAULT_LEVEL);
 
 struct udp_data
 {
-    struct hu_data data;
+    struct hu_data udp;
    	struct sockaddr_in addr;
 	struct hup_handle h;
 
@@ -28,18 +30,18 @@ struct udp_data
 	socklen_t client_len;
 };
 
-static int start_udp_proto(struct hu_data *data, struct sockaddr *bind_addr, socklen_t bind_addrlen)
+static int start_udp_proto(struct hu_data *udp, struct sockaddr *bind_addr, socklen_t bind_addrlen)
 {
 	int ret;
 
-	data->sock = socket(bind_addr->sa_family, SOCK_DGRAM, IPPROTO_UDP);
-	if (data->sock < 0)
+	udp->sock = socket(bind_addr->sa_family, SOCK_DGRAM, IPPROTO_UDP);
+	if (udp->sock < 0)
 	{
 		NET_ERR("Failed to create UDP socket (udp): %d", errno);
 		return -errno;
 	}
 
-	ret = bind(data->sock, bind_addr, bind_addrlen);
+	ret = bind(udp->sock, bind_addr, bind_addrlen);
 	if (ret < 0)
 	{
 		NET_ERR("Failed to bind UDP socket (udp): %d", errno);
@@ -52,7 +54,7 @@ static int start_udp_proto(struct hu_data *data, struct sockaddr *bind_addr, soc
 static int udp_send(char* buffer, int size, void* user_data)
 {
 	struct udp_data* data = (struct udp_data*)user_data;
-	int ret = sendto(data->data.sock, buffer, size, 0, &data->client, data->client_len);
+	int ret = sendto(data->udp.sock, buffer, size, 0, &data->client, data->client_len);
 	if (ret < 0) {
 		NET_ERR("UDP: Failed to send %d", errno);
 		ret = -errno;
@@ -71,10 +73,10 @@ static void hup_udp_thread(void* arg1, void* arg2, void* arg3)
 	data->addr.sin_port = htons(MY_PORT);
 	data->addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	data->data.connected = false;
-	data->data.sock = -1;
+	data->udp.connected = false;
+	data->udp.sock = -1;
 
-	ret = start_udp_proto(&data->data, (struct sockaddr *)&data->addr, sizeof(data->addr));
+	ret = start_udp_proto(&data->udp, (struct sockaddr *)&data->addr, sizeof(data->addr));
 	if (ret < 0)
 		return;
 
@@ -82,7 +84,7 @@ static void hup_udp_thread(void* arg1, void* arg2, void* arg3)
 	data->client_len = sizeof(data->client);
 	while (1)
 	{
-		received = recvfrom(data->data.sock, data->data.buffer, sizeof(data->data.buffer), 0,
+		received = recvfrom(data->udp.sock, data->udp.buffer, sizeof(data->udp.buffer), 0,
 		&data->client, &data->client_len);
 
 		if (received < 0)
@@ -92,7 +94,7 @@ static void hup_udp_thread(void* arg1, void* arg2, void* arg3)
 		}
 		else if (received)
 		{
-			process_hupacket(&data->h, data->data.buffer, received);
+			process_hupacket(&data->h, data->udp.buffer, received);
 		}
 	}
 }

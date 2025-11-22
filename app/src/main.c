@@ -96,7 +96,7 @@ int main(void)
 	const struct device *sensor, *blink;
 	struct sensor_value last_val = { 0 }, val;
 
-	printk("Zephyr Example Application %s\n", APP_VERSION_STRING);
+	printk("Zephyr Example Application %s/0x%08x\n", APP_VERSION_STRING, APPVERSION);
 
 	sensor = DEVICE_DT_GET(DT_NODELABEL(example_sensor));
 	if (!device_is_ready(sensor)) {
