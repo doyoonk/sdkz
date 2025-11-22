@@ -4,16 +4,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include "zephyr/drivers/flash.h"
 #include <hu/hupacket.h>
 #include <zephyr/kernel.h>
 #include <zephyr/storage/flash_map.h>
 
+#include <hu/ascii85.h>
 #include <huerrno.h>
+
+#define ASCII85_ERROR_CODE_START 255
 
 enum {
     ARG_FLASH_CMD,
     ARG_FLASH_PARTITION,
     ARG_ERASE_MAX,
+    ARG_FLASH_WRITE_PROTECT = ARG_ERASE_MAX,
+    ARG_WRPRT_MAX,
     ARG_FLASH_OFFSET = ARG_ERASE_MAX,
     ARG_FLASH_LENGTH,
     ARG_FLASH_ASCII85_DATA,
@@ -41,18 +47,6 @@ struct fixed_partition
 #endif
 #if FIXED_PARTITION_EXISTS(slot1_partition)
     { "slot1", FIXED_PARTITION_ID(slot1_partition) },
-#endif
-#if FIXED_PARTITION_EXISTS(slot2_partition)
-    { "slot2", FIXED_PARTITION_ID(slot2_partition) },
-#endif
-#if FIXED_PARTITION_EXISTS(slot3_partition)
-    { "slot3", FIXED_PARTITION_ID(slot3_partition) },
-#endif
-#if FIXED_PARTITION_EXISTS(slot4_partition)
-    { "slot4", FIXED_PARTITION_ID(slot4_partition) },
-#endif
-#if FIXED_PARTITION_EXISTS(slot5_partition)
-    { "slot5", FIXED_PARTITION_ID(slot5_partition) },
 #endif
 };
 
@@ -99,53 +93,95 @@ static void append_record(struct hup_handle* h, int from, int to)
     }
 }
 
-static void _erase(struct hup_handle* h, bool crc, void* user_data)
+struct fw_upgrade_data
 {
-    if (crc && h->argc >= ARG_ERASE_MAX)
+    int param;
+    int size;
+    char* bin;
+};
+static void _fw_upgrade(struct hup_handle* h, bool crc, void* user_data
+    , int argc_max, int argc_resp
+    , int (*func)(const struct flash_area* fa, struct fw_upgrade_data* param)
+    , struct fw_upgrade_data* param)
+{
+    if (crc && h->argc >= argc_max)
     {
         const struct flash_area* fa;
         int rc = open_flash_partition(h->argv[ARG_FLASH_PARTITION], &fa);
         if (rc != 0)
-            goto erase_error;
+            goto fw_upgrade_error;
 
-        // TODO: erase flash partition
+        rc = func(fa, param);
+        if (rc != 0)
+            goto fw_upgrade_error;
         close_flash_partition(fa);
         hupacket_record_int(h, h->tx_buffer, NOERROR);
-        goto erase_done;
+        goto fw_upgrade_done;
     }
 
-erase_error:
-    hupacket_record_int(h, h->tx_buffer, get_errno(h, crc, ARG_ERASE_MAX));
+fw_upgrade_error:
+    hupacket_record_int(h, h->tx_buffer, get_errno(h, crc, argc_max));
 
-erase_done:
-    append_record(h, ARG_FLASH_PARTITION, ARG_FLASH_PARTITION);
+fw_upgrade_done:
+    append_record(h, ARG_FLASH_PARTITION, argc_resp);
     h->send(h->tx_buffer, strlen(h->tx_buffer), h->user_data);
 }
 
-DEFINE_HUP_CMD(hup_cmd_erase, "erase", _erase);
+static int _f_wrprt(const struct flash_area* fa, struct fw_upgrade_data* param)
+{
+#if  CONFIG_FLASH_STM32_WRITE_PROTECT
+    // TODO: write protect
+#endif
+    return 0;
+}
+static int _f_erase(const struct flash_area* fa, struct fw_upgrade_data* param)
+{
+    return flash_area_erase(fa, 0, fa->fa_size);
+}
 
+static int _f_flash(const struct flash_area* fa, struct fw_upgrade_data* param)
+{
+    int32_t len = strlen(param->bin);
+    int olen = decode_ascii85(param->bin, len
+        , param->bin, len);
+
+    if (-ASCII85_ERROR_CODE_START != ascii85_err_out_buf_too_small)
+        return -ECODEA85;
+    if (olen < 0)
+        return -(olen + ASCII85_ERROR_CODE_START + EASCII85);
+    if (olen != param->size)
+        return -EDESZA85;
+    return flash_write(fa->fa_dev, param->param, param->bin, param->size);
+}
+
+static void _wrprt(struct hup_handle* h, bool crc, void* user_data)
+{
+#if CONFIG_FLASH_HAS_EX_OP
+    struct fw_upgrade_data fw_data = {
+        .param = strtol(h->argv[ARG_FLASH_WRITE_PROTECT], NULL, 10)
+    };
+
+    _fw_upgrade(h, crc, user_data, ARG_WRPRT_MAX, ARG_FLASH_PARTITION,
+         _f_wrprt, &fw_data);
+#endif
+}
+DEFINE_HUP_CMD(hup_cmd_wrprt, "wrprt", _wrprt);
+
+static void _erase(struct hup_handle* h, bool crc, void* user_data)
+{
+    _fw_upgrade(h, crc, user_data, ARG_ERASE_MAX, ARG_FLASH_PARTITION
+        , _f_erase, NULL);
+}
+DEFINE_HUP_CMD(hup_cmd_erase, "erase", _erase);
 
 static void _flash(struct hup_handle* h, bool crc, void* user_data)
 {
-    if (crc && h->argc >= ARG_FLASH_MAX)
-    {
-        const struct flash_area* fa;
-        int rc = open_flash_partition(h->argv[ARG_FLASH_PARTITION], &fa);
-        if (rc != 0)
-            goto flash_error;
-
-        // TODO: write data
-        close_flash_partition(fa);
-        hupacket_record_int(h, h->tx_buffer, NOERROR);
-        goto flash_done;
-    }
-
-flash_error:
-    hupacket_record_int(h, h->tx_buffer, get_errno(h, crc, ARG_FLASH_MAX));
-
-flash_done:
-    append_record(h, ARG_FLASH_PARTITION, ARG_FLASH_LENGTH);
-    h->send(h->tx_buffer, strlen(h->tx_buffer), h->user_data);
+    struct fw_upgrade_data fw_data = {
+        .param = strtol(h->argv[ARG_FLASH_OFFSET], NULL, 16),
+        .size = strtol(h->argv[ARG_FLASH_LENGTH], NULL, 16),
+        .bin = h->argv[ARG_FLASH_ASCII85_DATA]
+    };
+    _fw_upgrade(h, crc, user_data, ARG_FLASH_MAX, ARG_FLASH_LENGTH
+        , _f_flash, &fw_data);
 }
-
 DEFINE_HUP_CMD(hup_cmd_flash, "flash", _flash);

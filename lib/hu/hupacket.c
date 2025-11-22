@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/*
+/* 
+ * ASCII85:
+ *
  * Packet: STX record_data RS record_data RS ... [EOT CRC16] ETX
  * 	- CRC16: hex string(ex: A05A)
  *  - example packet: flash = offset, binary size, data(ascii85 encoded) for binary
