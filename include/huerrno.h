@@ -14,8 +14,12 @@
 #define ECODEA85        (__ELASTERROR + 1)  /* ascii85 error code*/
 #define EDESZA85        (__ELASTERROR + 2)  /* Decode size error for ascii85 */
 #define EASCII85        (__ELASTERROR + 3)  /* for ascii85 */
-
-#define __ELASTASCII85  (__ELASTERROR + 9)
-
+// ascii85_err_out_buf_too_small            (__ELASTERROR + 3)
+// ascii85_err_in_buf_too_large             (__ELASTERROR + 4)
+// ascii85_err_bad_decode_char              (__ELASTERROR + 5)
+// ascii85_err_decode_overflow              (__ELASTERROR + 6)
+// reserved                                 (__ELASTERROR + 7)
+// reserved                                 (__ELASTERROR + 8)
+// reserved                                 (__ELASTERROR + 9)
 
 #endif // HU_ERROR_NO

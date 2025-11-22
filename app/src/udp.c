@@ -69,7 +69,7 @@ static void hup_udp_thread(void* arg1, void* arg2, void* arg3)
 	(void)memset(&data->addr, 0, sizeof(data->addr));
 	data->addr.sin_family = AF_INET;
 	data->addr.sin_port = htons(MY_PORT);
-	data->addr.sin_addr.s_addr = htons(INADDR_ANY);
+	data->addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	data->data.connected = false;
 	data->data.sock = -1;

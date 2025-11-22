@@ -4,6 +4,7 @@
  *
  * @par
  * @copyright Copyright © 2017 Doug Currie, Londonderry, NH, USA. All rights reserved.
+ * @copyright Copyright (c) 2025 HU Inc.
  *
  * @par
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software
