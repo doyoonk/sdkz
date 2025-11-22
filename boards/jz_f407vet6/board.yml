@@ -1,6 +1,6 @@
 board:
-  name: jz_f407ve_dvk
-  full_name: JZ F407VE_DevelopKit
+  name: jz_f407vet6
+  full_name: JZ F407VET6 Development board
   vendor: hm
   socs:
     - name: stm32f407xx

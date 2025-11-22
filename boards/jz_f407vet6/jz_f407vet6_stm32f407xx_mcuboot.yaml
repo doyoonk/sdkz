@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-identifier: jz_f407ve_dvk/stm32f407xx/mcuboot
-name: JZ F407VE_DEVELOPKIT - MCUboot
+identifier: jz_f407vet6/stm32f407xx/mcuboot
+name: JZ F407VET6 Development board - MCUboot
 type: mcu
 arch: arm
 toolchain:

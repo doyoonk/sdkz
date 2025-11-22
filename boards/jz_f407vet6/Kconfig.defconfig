@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-if BOARD_JZ_F407VE_DVK
+if BOARD_JZ_F407VET6
 
 if NETWORKING
 
@@ -13,5 +13,5 @@ config NET_L2_ETHERNET
 
 endif # NETWORKING
 
-endif # BOARD_JZ_F407VE_DVK
+endif # BOARD_JZ_F407VET6
 

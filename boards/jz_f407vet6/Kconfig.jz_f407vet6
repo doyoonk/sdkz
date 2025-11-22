@@ -4,5 +4,5 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-config BOARD_JZ_F407VE_DVK
+config BOARD_JZ_F407VET6
 	select SOC_STM32F407XE

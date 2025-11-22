@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
- #include "jz_f407ve_dvk.dts"
+ #include "jz_f407vet6.dts"
 
 / {
 	model = "JZ STM32F407VET6 Development board";
-	compatible = "jz,stm32f407ve-dvk-mcuboot";
+	compatible = "jz,f407vet6-mcuboot";
 
 	chosen {
 		zephyr,code-partition = &boot_partition;

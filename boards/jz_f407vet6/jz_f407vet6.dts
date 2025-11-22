@@ -11,7 +11,7 @@
 
 / {
 	model = "JZ STM32F407VET6 Development board";
-	compatible = "jz,stm32f407ve-dvk";
+	compatible = "jz,f407vet6";
 
 	chosen {
 		zephyr,console = &usart1;
