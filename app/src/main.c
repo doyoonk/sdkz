@@ -8,15 +8,86 @@
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/logging/log.h>
+#include <errno.h>
+#include <zephyr/shell/shell.h>
+
+#include <zephyr/net/net_core.h>
+
+#include <zephyr/net/net_mgmt.h>
+#include <zephyr/net/net_event.h>
+#include <zephyr/net/conn_mgr_monitor.h>
 
 #include <app/drivers/blink.h>
 
 #include <app_version.h>
+#include <app/usb.h>
+#include <enet.h>
 
 LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 
 #define BLINK_PERIOD_MS_STEP 100U
 #define BLINK_PERIOD_MS_MAX  1000U
+
+static struct k_sem quit_lock;
+static struct net_mgmt_event_callback mgmt_cb;
+static bool connected;
+K_SEM_DEFINE(run_app, 0, 1);
+static bool want_to_quit;
+
+#define EVENT_MASK (NET_EVENT_L4_CONNECTED | NET_EVENT_L4_DISCONNECTED)
+
+static void event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt_event, struct net_if *iface)
+{
+	ARG_UNUSED(iface);
+	ARG_UNUSED(cb);
+
+	if ((mgmt_event & EVENT_MASK) != mgmt_event) {
+		return;
+	}
+
+	if (want_to_quit) {
+		k_sem_give(&run_app);
+		want_to_quit = false;
+	}
+
+	if (mgmt_event == NET_EVENT_L4_CONNECTED) {
+		LOG_INF("Network connected");
+
+		connected = true;
+		k_sem_give(&run_app);
+
+		return;
+	}
+
+	if (mgmt_event == NET_EVENT_L4_DISCONNECTED) {
+		if (connected == false) {
+			LOG_INF("Waiting network to be connected");
+		} else {
+			LOG_INF("Network disconnected");
+			connected = false;
+		}
+
+		k_sem_reset(&run_app);
+
+		return;
+	}
+}
+
+static __unused void init_app(void)
+{
+	k_sem_init(&quit_lock, 0, K_SEM_MAX_LIMIT);
+
+	if (IS_ENABLED(CONFIG_NET_CONNECTION_MANAGER)) {
+		net_mgmt_init_event_callback(&mgmt_cb, event_handler, EVENT_MASK);
+		net_mgmt_add_event_callback(&mgmt_cb);
+		conn_mgr_mon_resend_status();
+	}
+
+	init_vlan();
+	init_tunnel();
+	init_ws();
+	init_usb();
+}
 
 int main(void)
 {

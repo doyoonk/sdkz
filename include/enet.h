@@ -10,5 +10,8 @@
 #include <stdint.h>
 
 extern void* enet_init(const uint8_t *hwaddr, const char *ipv6, const uint8_t *ipv4, const uint8_t *nm, const uint8_t *gw);
+extern int init_vlan(void);
+extern int init_tunnel(void);
+extern int init_ws(void);
 
 #endif

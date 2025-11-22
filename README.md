@@ -61,8 +61,12 @@ the ``sdk`` and all Zephyr modules will be cloned. Run the following
 command:
 
 ```shell
+# Create a new virtual environment and activate: -Windows
+python3 -m venv ~/sdkz/.venv && . ~/sdkz/.venv/bin/activate
+# Create a new virtual environment and activate: -linux/MacOS
+cd %HOMEPATH%
+python -m venv sdkz\.venv && .\sdkz\.venv\Scripts\activate
 # initialize sdkz for the sdk for zephyr application (main branch)
-python -m venv sdkz\.venv && .\sdkz\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip && python -m pip install west
 
 west init -m https://github.com/doyoonk/sdkz.git --mr main sdkz

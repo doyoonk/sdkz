@@ -13,5 +13,7 @@ project(app LANGUAGES C)
 target_sources(app PRIVATE
     src/main.c
     src/pwmleds.c
-    src/properties.c
+    src/settings.c
 )
+
+zephyr_linker_sources(DATA_SECTIONS iterables.ld)

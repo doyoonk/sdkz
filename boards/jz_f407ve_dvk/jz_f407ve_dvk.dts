@@ -231,21 +231,13 @@ zephyr_udc0: &usbotg_hs {
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			syscfg_partition: partition@0 {
-				label = "syscfg";
-				reg = <0x00010000 DT_SIZE_K(64)>;
-			};
-			properties_partition: partition@f0000 {
-				label = "property";
-				reg = <0x000f0000 DT_SIZE_K(64)>;
-			};
-			slot1_partition: partition@20000 {
+			slot1_partition: partition@0 {
 				label = "image-1";
-				reg = <0x0020000 DT_SIZE_K(448)>;
+				reg = <0x00000000 DT_SIZE_K(448)>;
 			};
-			scratch_partition: partition@90000 {
+			scratch_partition: partition@80000 {
 				label = "image-scratch";
-				reg = <0x00090000 DT_SIZE_K(448)>;
+				reg = <0x00080000 DT_SIZE_K(448)>;
 			};
 			storage_partition: partition@100000 {
 				label = "storage";

@@ -1,0 +1,21 @@
+#
+# Copyright (c) 2025 HU Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+config HU
+	bool "Support for HU library"
+	help
+	  This option enables the 'HU' library
+
+mainmenu "HU library"
+
+config HU_PACKET
+	bool "Support HU packet"
+	help
+	  This option enables the 'HU' packet
+
+config HU_PACKET_SIZE
+	int "HU packet buffer size"
+	default 1530

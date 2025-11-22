@@ -1,9 +1,14 @@
+#
 # Copyright (c) 2021 Legrand North America, LLC.
+# Copyright (c) 2025 HU Inc.
+#
 # SPDX-License-Identifier: Apache-2.0
+#
 
 menu "Custom libraries"
 
 rsource "custom/Kconfig"
 rsource "net/Kconfig"
+rsource "hu/Kconfig"
 
 endmenu

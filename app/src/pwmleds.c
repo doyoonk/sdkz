@@ -25,7 +25,7 @@ static const struct pwm_dt_spec pwm_led0 = PWM_DT_SPEC_GET(DT_ALIAS(pwm_led0));
 #define MIN_PERIOD PWM_SEC(1U) / 128U
 #define MAX_PERIOD PWM_SEC(1U)
 
-static void _pwmleds(void*, void*, void*)
+static void start_pwmleds(void*, void*, void*)
 {
 	uint32_t max_period;
 	uint32_t period;
@@ -83,4 +83,4 @@ static void _pwmleds(void*, void*, void*)
 		k_sleep(K_SECONDS(4U));
 	}
 }
-K_THREAD_DEFINE(pwmleds, 512, _pwmleds, NULL, NULL, NULL, 5, 0, 0);
+K_THREAD_DEFINE(pwmleds, 512, start_pwmleds, NULL, NULL, NULL, 5, 0, 0);

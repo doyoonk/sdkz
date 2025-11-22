@@ -13,7 +13,7 @@ struct Property {
     const char* const key;
     uint32_t offset;
     uint32_t length;
-    void* default;
+    void* defaults;
 };
 
 #endif
