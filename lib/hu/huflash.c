@@ -151,7 +151,7 @@ static int _f_flash(const struct flash_area* fa, struct fw_upgrade_data* param)
         return -(olen + ASCII85_ERROR_CODE_START + EASCII85);
     if (olen != param->size)
         return -EDESZA85;
-    return flash_write(fa->fa_dev, param->param, param->bin, param->size);
+    return flash_area_write(fa, param->param, param->bin, param->size);
 }
 
 static void _wrprt(struct hup_handle* h, bool crc, void* user_data)

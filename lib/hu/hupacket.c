@@ -37,11 +37,12 @@
 #include <zephyr/sys/iterable_sections.h>
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(hup, CONFIG_LOG_DEFAULT_LEVEL);
 
 #include <string.h>
 #include <stdlib.h>
 extern char* itoa (int value, char *str,int base);
+
+LOG_MODULE_REGISTER(hup, CONFIG_LOG_DEFAULT_LEVEL);
 
 #define HUP_STATE_NONE         -1
 

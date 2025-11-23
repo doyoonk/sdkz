@@ -16,7 +16,6 @@
 struct udp_data
 {
     struct net_data udp;
-   	struct sockaddr_in addr;
 
 	struct sockaddr client;
 	socklen_t client_len;

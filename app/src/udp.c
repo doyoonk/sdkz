@@ -38,18 +38,21 @@ static int start_udp_proto(struct net_data *udp, struct sockaddr *bind_addr, soc
 		return -errno;
 	}
 
+	udp->connected = true;
 	return 0;
 }
 
 int init_udp(struct udp_data* data, uint32_t addr, int port)
 {
-	(void)memset(&data->addr, 0, sizeof(data->addr));
-	data->addr.sin_family = AF_INET;
-	data->addr.sin_port = htons(port);
-	data->addr.sin_addr.s_addr = htonl(addr);
+	struct sockaddr_in addr_in;
+
+	(void)memset(&addr_in, 0, sizeof(addr_in));
+	addr_in.sin_family = AF_INET;
+	addr_in.sin_port = htons(port);
+	addr_in.sin_addr.s_addr = htonl(addr);
 
 	data->udp.connected = false;
 	data->udp.sock = -1;
 
-	return start_udp_proto(&data->udp, (struct sockaddr *)&data->addr, sizeof(data->addr));
+	return start_udp_proto(&data->udp, (struct sockaddr *)&addr_in, sizeof(addr_in));
 }
