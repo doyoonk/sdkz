@@ -11,7 +11,7 @@
 #include <zephyr/posix/sys/socket.h>
 #include <zephyr/posix/unistd.h>
 
-#include <net_common.h>
+#include <net/net_common.h>
 
 struct udp_data
 {

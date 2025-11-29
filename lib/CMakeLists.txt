@@ -7,5 +7,6 @@
 add_subdirectory_ifdef(CONFIG_CUSTOM custom)
 add_subdirectory_ifdef(CONFIG_ENET net)
 add_subdirectory_ifdef(CONFIG_HU hu)
+add_subdirectory(app)
 
 zephyr_linker_sources(ROM_SECTIONS iterables.ld)

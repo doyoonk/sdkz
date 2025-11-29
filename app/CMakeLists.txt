@@ -14,6 +14,4 @@ target_sources(app PRIVATE
     src/hupacket_udp.c
     src/main.c
     src/pwmleds.c
-    src/settings.c
-    src/udp.c
 )

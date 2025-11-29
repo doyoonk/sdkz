@@ -10,6 +10,9 @@
  * @file Sample app to demonstrate PWM.
  */
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(app, CONFIG_APP_LOG_LEVEL);
+
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/device.h>
@@ -32,11 +35,10 @@ static void start_pwmleds(void*, void*, void*)
 	uint8_t dir = 0U;
 	int ret;
 
-	printk("PWM-based blinky\n");
+	LOG_INF("PWM-based blinky");
 
 	if (!pwm_is_ready_dt(&pwm_led0)) {
-		printk("Error: PWM device %s is not ready\n",
-		       pwm_led0.dev->name);
+		LOG_ERR("Error: PWM device %s is not ready", pwm_led0.dev->name);
 		return;
 	}
 
@@ -47,26 +49,23 @@ static void start_pwmleds(void*, void*, void*)
 	 * Keep its value at least MIN_PERIOD * 4 to make sure
 	 * the sample changes frequency at least once.
 	 */
-	printk("Calibrating for channel %d...\n", pwm_led0.channel);
+	LOG_INF("Calibrating for channel %d...", pwm_led0.channel);
 	max_period = MAX_PERIOD;
 	while (pwm_set_dt(&pwm_led0, max_period, max_period / 2U)) {
 		max_period /= 2U;
 		if (max_period < (4U * MIN_PERIOD)) {
-			printk("Error: PWM device "
-			       "does not support a period at least %lu\n",
-			       4U * MIN_PERIOD);
+			LOG_ERR("Error: PWM device does not support a period at least %lu", 4U * MIN_PERIOD);
 			return;
 		}
 	}
 
-	printk("Done calibrating; maximum/minimum periods %u/%lu nsec\n",
-	       max_period, MIN_PERIOD);
+	LOG_INF("Done calibrating; maximum/minimum periods %u/%lu nsec\n", max_period, MIN_PERIOD);
 
 	period = max_period;
 	while (1) {
 		ret = pwm_set_dt(&pwm_led0, period, period / 2U);
 		if (ret) {
-			printk("Error %d: failed to set pulse width\n", ret);
+			LOG_ERR("Error %d: failed to set pulse width", ret);
 			return;
 		}
 		//printk("Using period %d\n", period);

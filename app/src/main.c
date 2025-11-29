@@ -5,10 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
+
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/sensor.h>
-#include <zephyr/logging/log.h>
-#include <errno.h>
 #include <zephyr/shell/shell.h>
 
 #include <zephyr/net/net_core.h>
@@ -21,9 +22,9 @@
 
 #include <app_version.h>
 #include <app/usb.h>
-#include <enet.h>
+#include <net/enet.h>
 
-LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
+#include <huerrno.h>
 
 #define BLINK_PERIOD_MS_STEP 100U
 #define BLINK_PERIOD_MS_MAX  1000U
@@ -96,7 +97,20 @@ int main(void)
 	const struct device *sensor, *blink;
 	struct sensor_value last_val = { 0 }, val;
 
-	printk("Zephyr Example Application %s/0x%08x\n", APP_VERSION_STRING, APPVERSION);
+#if CONFIG_NET_IPV4
+
+#ifdef CONFIG_NET_CONFIG_MY_IPV4_NETMASK
+#endif
+
+#ifdef CONFIG_NET_CONFIG_MY_IPV4_GW
+#endif
+
+#ifdef CONFIG_NET_CONFIG_MY_IPV4_ADDR
+#endif
+
+#endif
+
+	LOG_INF("Zephyr Example Application %s/0x%08x", APP_VERSION_STRING, APPVERSION);
 
 	sensor = DEVICE_DT_GET(DT_NODELABEL(example_sensor));
 	if (!device_is_ready(sensor)) {
@@ -116,11 +130,11 @@ int main(void)
 		return 0;
 	}
 
-	printk("Use the sensor to change LED blinking period\n");
+	LOG_INF("Use the sensor to change LED blinking period");
 	blink_set_period_ms(blink, period_ms);
 
  #if DT_NODE_HAS_STATUS_OKAY(DT_CHOSEN(zephyr_ccm))
-	LOG_INF("ccm start %p, load %p, end %d", &__ccm_data_start, &__ccm_data_load_start, (size_t)__ccm_data_end);
+	LOG_INF("ccm start %p, load %p, end %08x", &__ccm_data_start, &__ccm_data_load_start, (size_t)__ccm_data_end);
  #endif
 
 	while (1) {
@@ -143,8 +157,7 @@ int main(void)
 				period_ms -= BLINK_PERIOD_MS_STEP;
 			}
 
-			printk("Proximity detected, setting LED period to %u ms\n",
-			       period_ms);
+			LOG_INF("Proximity detected, setting LED period to %u ms", period_ms);
 			blink_set_period_ms(blink, period_ms);
 		}
 

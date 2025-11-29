@@ -16,3 +16,11 @@
 		blink-period-ms = <1000>;
 	};
 };
+
+&zephyr_udc0 {
+	cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+		label = "Zephyr USB CDC-ACM";
+	};
+};
+

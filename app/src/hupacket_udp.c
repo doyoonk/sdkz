@@ -5,6 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(app, CONFIG_LOG_DEFAULT_LEVEL);
+
 #include <app/udp.h>
 #include <hu/hupacket.h>
 
@@ -12,9 +15,8 @@
 #include <zephyr/net/socket.h>
 #include <zephyr/posix/sys/socket.h>
 #include <zephyr/posix/unistd.h>
-#include <zephyr/logging/log.h>
 
-#include <errno.h>
+#include <huerrno.h>
 #include <stdio.h>
 
 #define MY_PORT     4241
@@ -25,13 +27,12 @@ struct hup_udp_data
     struct hup_handle h;
 };
 
-LOG_MODULE_DECLARE(app, CONFIG_LOG_DEFAULT_LEVEL);
-
 static int udp_send(char* buffer, int size, void* user_data)
 {
 	struct udp_data* ipv4 = (struct udp_data*)user_data;
 	int ret = sendto(ipv4->udp.sock, buffer, size, 0, &ipv4->client, ipv4->client_len);
-	if (ret < 0) {
+	if (ret < 0)
+	{
 		NET_ERR("UDP: Failed to send %d", errno);
 		ret = -errno;
 	}
