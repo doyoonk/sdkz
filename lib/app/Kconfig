@@ -5,10 +5,5 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-menu "Custom libraries"
-
-rsource "custom/Kconfig"
-rsource "hu/Kconfig"
-rsource "app/Kconfig"
-
-endmenu
+source "${ZEPHYR_BASE}/samples/subsys/usb/common/Kconfig.sample_usbd"
+source "${ZEPHYR_BASE}/samples/net/common/Kconfig"

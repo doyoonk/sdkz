@@ -9,32 +9,38 @@
 LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 
 #include <zephyr/kernel.h>
+#include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/shell/shell.h>
 
+#include <zephyr/net/net_if.h>
 #include <zephyr/net/net_core.h>
-
 #include <zephyr/net/net_mgmt.h>
 #include <zephyr/net/net_event.h>
 #include <zephyr/net/conn_mgr_monitor.h>
+
+#include <zephyr/version.h>
 
 #include <app/drivers/blink.h>
 
 #include <app_version.h>
 #include <app/usb.h>
-#include <net/enet.h>
 
 #include <huerrno.h>
+#include <hu/hupacket.h>
+#include <hu/palloc.h>
+
+#include <net_sample_common.h>
+#include <zephyr/drivers/bbram.h>
 
 #define BLINK_PERIOD_MS_STEP 100U
 #define BLINK_PERIOD_MS_MAX  1000U
 
-static struct k_sem quit_lock;
-static struct net_mgmt_event_callback mgmt_cb;
+extern int init_bbram();
 static bool connected;
-K_SEM_DEFINE(run_app, 0, 1);
-static bool want_to_quit;
 
+#if CONFIG_NET_CONNECTION_MANAGER
+static struct net_mgmt_event_callback mgmt_cb = { 0 };
 #define EVENT_MASK (NET_EVENT_L4_CONNECTED | NET_EVENT_L4_DISCONNECTED)
 
 static void event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt_event, struct net_if *iface)
@@ -46,48 +52,43 @@ static void event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt_even
 		return;
 	}
 
-	if (want_to_quit) {
-		k_sem_give(&run_app);
-		want_to_quit = false;
-	}
-
 	if (mgmt_event == NET_EVENT_L4_CONNECTED) {
-		LOG_INF("Network connected");
-
 		connected = true;
-		k_sem_give(&run_app);
-
 		return;
 	}
 
 	if (mgmt_event == NET_EVENT_L4_DISCONNECTED) {
-		if (connected == false) {
-			LOG_INF("Waiting network to be connected");
-		} else {
-			LOG_INF("Network disconnected");
-			connected = false;
-		}
-
-		k_sem_reset(&run_app);
-
+		connected = false;
 		return;
 	}
 }
+#endif
 
-static __unused void init_app(void)
+static int init_app(void)
 {
-	k_sem_init(&quit_lock, 0, K_SEM_MAX_LIMIT);
+#if CONFIG_NET_IPV4
+	struct net_if* iface = net_if_get_default();
 
-	if (IS_ENABLED(CONFIG_NET_CONNECTION_MANAGER)) {
+	if (net_if_flag_is_set(iface, NET_IF_IPV4))
+	{
+#if CONFIG_NET_CONNECTION_MANAGER
 		net_mgmt_init_event_callback(&mgmt_cb, event_handler, EVENT_MASK);
 		net_mgmt_add_event_callback(&mgmt_cb);
 		conn_mgr_mon_resend_status();
+#endif
+		init_vlan();
+		init_tunnel();
 	}
+#endif
 
-	init_vlan();
-	init_tunnel();
-	init_ws();
-	init_usb();
+	init_bbram();
+
+	return init_usb();
+}
+
+static void deinit_app()
+{
+	net_mgmt_del_event_callback(&mgmt_cb);
 }
 
 int main(void)
@@ -97,57 +98,46 @@ int main(void)
 	const struct device *sensor, *blink;
 	struct sensor_value last_val = { 0 }, val;
 
-#if CONFIG_NET_IPV4
-
-#ifdef CONFIG_NET_CONFIG_MY_IPV4_NETMASK
-#endif
-
-#ifdef CONFIG_NET_CONFIG_MY_IPV4_GW
-#endif
-
-#ifdef CONFIG_NET_CONFIG_MY_IPV4_ADDR
-#endif
-
-#endif
-
 	LOG_INF("Zephyr Example Application %s/0x%08x", APP_VERSION_STRING, APPVERSION);
+
+ #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_ccm))
+	LOG_INF("ccm size %d: start 0x%08x, data end 0x%08x"
+		, DT_REG_SIZE(DT_CHOSEN(zephyr_ccm))
+		, (size_t)__ccm_start, (size_t)__ccm_data_end);
+	LOG_INF("palloc start 0x%08x end 0x%08x"
+		, (size_t)__ccm_start
+		, (size_t)__ccm_start + DT_REG_SIZE(DT_CHOSEN(zephyr_ccm)));
+	palloc_init(__ccm_start, __ccm_start + DT_REG_SIZE(DT_CHOSEN(zephyr_ccm)));
+ #endif
+
+	init_app();
 
 	sensor = DEVICE_DT_GET(DT_NODELABEL(example_sensor));
 	if (!device_is_ready(sensor)) {
 		LOG_ERR("Sensor not ready");
-		return 0;
+		goto exit_main;
 	}
 
 	blink = DEVICE_DT_GET(DT_NODELABEL(blink_led));
 	if (!device_is_ready(blink)) {
 		LOG_ERR("Blink LED not ready");
-		return 0;
-	}
-
-	ret = blink_off(blink);
-	if (ret < 0) {
-		LOG_ERR("Could not turn off LED (%d)", ret);
-		return 0;
+		goto exit_main;
 	}
 
 	LOG_INF("Use the sensor to change LED blinking period");
 	blink_set_period_ms(blink, period_ms);
 
- #if DT_NODE_HAS_STATUS_OKAY(DT_CHOSEN(zephyr_ccm))
-	LOG_INF("ccm start %p, load %p, end %08x", &__ccm_data_start, &__ccm_data_load_start, (size_t)__ccm_data_end);
- #endif
-
 	while (1) {
 		ret = sensor_sample_fetch(sensor);
 		if (ret < 0) {
 			LOG_ERR("Could not fetch sample (%d)", ret);
-			return 0;
+			goto exit_main;
 		}
 
 		ret = sensor_channel_get(sensor, SENSOR_CHAN_PROX, &val);
 		if (ret < 0) {
 			LOG_ERR("Could not get sample (%d)", ret);
-			return 0;
+			goto exit_main;
 		}
 
 		if ((last_val.val1 == 0) && (val.val1 == 1)) {
@@ -166,5 +156,18 @@ int main(void)
 		k_sleep(K_MSEC(100));
 	}
 
+exit_main:
+	deinit_app();
 	return 0;
 }
+
+static void _ver(void* h, int argc, const char** argv)
+{
+	hupacket_ack_response(h, NULL);
+	hupacket_record_int(h, NULL, NOERROR);
+	hupacket_record_str(h, NULL, APP_VERSION_EXTENDED_STRING);
+	hupacket_record_str(h, NULL, KERNEL_VERSION_STRING);
+	hupacket_record_str(h, NULL, __DATE__ " " __TIME__);
+	hupacket_send_buffer(h, NULL);
+}
+DEFINE_HUP_CMD(hup_cmd_ver, "ver", _ver);

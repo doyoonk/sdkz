@@ -7,9 +7,12 @@
 zephyr_library()
 
 include_directories(${ZEPHYR_BASE}/samples/subsys/usb/common)
+include_directories(${ZEPHYR_BASE}/samples/net/common)
 include(${ZEPHYR_BASE}/samples/subsys/usb/common/common.cmake)
+include(${ZEPHYR_BASE}/samples/net/common/common.cmake)
 
 zephyr_library_sources(
+    bbram.c
     settings.c
     udp.c
     usb.c

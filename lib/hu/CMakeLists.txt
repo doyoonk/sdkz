@@ -10,4 +10,5 @@ zephyr_library_sources_ifdef(CONFIG_HU_PACKET
     hupacket.c
     huflash.c
     ascii85.c
+    palloc.c
 )

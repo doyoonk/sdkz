@@ -9,6 +9,8 @@
 
 #include "common.h"
 #include <zephyr/sys/iterable_sections.h>
+#include <zephyr/posix/unistd.h>
+
 
 #define RECV_BUFFER_SIZE    CONFIG_HU_PACKET_SIZE
 
@@ -17,8 +19,7 @@ extern "C"
 {
 #endif
 
-typedef int (*send_func)(char* buffer, int size, void* user_data);
-
+typedef ssize_t (*send_func)(const void* buffer, size_t size, void* user_data);
 struct hup_handle
 {
     int argc;
@@ -26,10 +27,12 @@ struct hup_handle
     
     int state;
     char buffer[RECV_BUFFER_SIZE];
+    bool response;
 
     char* id;
     char* sequence;
-    bool crc16;
+    char* crc16;
+    void* enduser_data;
 
     char tx_buffer[CONFIG_HU_PACKET_SIZE];
     void* user_data;
@@ -39,7 +42,7 @@ struct hup_handle
 struct hup_cmd
 {
 	const char* cmd;
-	void (*func)(struct hup_handle* h, bool crc, void* user_data);
+	void (*func)(void* h, int argc, const char* argv[]);
 };
 #define DEFINE_HUP_CMD(name, command, function) STRUCT_SECTION_ITERABLE(hup_cmd, name) = \
 { \
@@ -47,19 +50,37 @@ struct hup_cmd
     .func = function \
 }
 
-void init_hupacket(struct hup_handle* h, send_func send, void* user_data);
-void reset_hupacket(struct hup_handle* h);
-void process_hupacket(struct hup_handle* h, uint8_t* data, size_t data_len);
+struct hup_resp
+{
+	const char* cmd;
+	void (*func)(void* h, int argc, const char* argv[], void* enduser_data);
+};
+#define DEFINE_HUP_RESP(name, command, function) STRUCT_SECTION_ITERABLE(hup_resp, name) = \
+{ \
+    .cmd = command, \
+    .func = function \
+}
 
-void hupacket_reset_txbuffer(struct hup_handle* h);
-void hupacket_append_str(struct hup_handle* h, char* buffer, const char* str);
-void hupacket_append_char(struct hup_handle* h, char* buffer, const char ch);
-void hupacket_append_int(struct hup_handle* h, char* buffer, const int val);
+void* init_hupacket(void* h, send_func send, void* user_data);
+void reset_hupacket(void* h);
+void process_hupacket(void* h, uint8_t* data, size_t data_len);
 
-void hupacket_record_str(struct hup_handle* h, char* buffer, const char* const str);
-void hupacket_record_int(struct hup_handle* h, char* buffer, const int val);
-void hupacket_record_hex(struct hup_handle* h, char* buffer, const int val);
+void hupacket_reset_buffer(void* h, char* buffer, char res);
 
+void hupacket_append_str(void* h, char* buffer, const char* str);
+void hupacket_append_char(void* h, char* buffer, const char ch);
+void hupacket_append_int(void* h, char* buffer, const int val);
+void hupacket_append_hex(void* h, char* buffer, const uint32_t val);
+
+void hupacket_record_str(void* h, char* buffer, const char* const str);
+void hupacket_record_int(void* h, char* buffer, const int val);
+void hupacket_record_hex(void* h, char* buffer, const uint32_t val);
+
+
+void hupacket_ack_response(void* h, char* buffer);
+void hupacket_nak_response(void* h, char* buffer);
+
+int hupacket_send_buffer(void* h, char* buffer);
 
 #ifdef __cplusplus
 }

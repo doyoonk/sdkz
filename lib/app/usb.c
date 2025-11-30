@@ -6,7 +6,7 @@
  */
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_DECLARE(net_echo_server_sample, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(app_usb, CONFIG_LOG_DEFAULT_LEVEL);
 
 #include <sample_usbd.h>
 
@@ -200,8 +200,6 @@ int init_usb(void)
 
 	uart_irq_callback_set(uart_dev, interrupt_handler);
 	uart_irq_rx_enable(uart_dev);
-
-	//(void)net_config_init_app(NULL, "Initializing network");
 
 	return 0;
 }

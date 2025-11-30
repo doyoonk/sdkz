@@ -73,13 +73,16 @@
 
 	aliases {
 		rtc = &rtc;
+		bbram = &bbram;
 		led0 = &red_led_0;
 		led1 = &red_led_1;
 		led2 = &red_led_2;
+		sw0 = &button0;
 		btn0 = &button0;
 		btn1 = &button1;
 		btn2 = &button2;
 		pwm-led0 = &pwm_led_0;
+		die-temp0 = &die_temp;
 		volt-sensor0 = &vref;
 		volt-sensor1 = &vbat;
 	};
@@ -127,6 +130,10 @@
 	backup_regs {
 		status = "okay";
 	};
+};
+
+&bbram {
+	status = "okay";
 };
 
 &ccm0 {
@@ -328,4 +335,11 @@ zephyr_udc0: &usbotg_hs {
 
 &rng {
 	status = "okay";
+};
+
+&zephyr_udc0 {
+	cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+		label = "Zephyr USB CDC-ACM";
+	};
 };

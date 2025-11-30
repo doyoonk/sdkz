@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
- / {
+#include <st/n6/stm32n6_rtc.dtsi>
+
+/ {
 	example_sensor: example-sensor {
 		compatible = "zephyr,example-sensor";
 		input-gpios = <&gpioa 6 GPIO_ACTIVE_HIGH>;
@@ -14,5 +16,35 @@
 		compatible = "blink-gpio-led";
 		led-gpios = <&gpiog 10 GPIO_ACTIVE_HIGH>;
 		blink-period-ms = <1000>;
+	};
+};
+
+&clk_lse {
+	status = "okay";
+};
+
+&rtc {
+	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x10000000>,
+		<&rcc STM32_SRC_LSE RTC_SEL(1)>;
+
+	status = "okay";
+
+	backup_regs {
+		status = "okay";
+	};
+};
+
+&bbram {
+	status = "okay";
+};
+
+&ccm0 {
+	status = "okay";
+};
+
+&zephyr_udc0 {
+	cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+		label = "Zephyr USB CDC-ACM";
 	};
 };

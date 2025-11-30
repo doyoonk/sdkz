@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
- / {
+/ {
 	example_sensor: example-sensor {
 		compatible = "zephyr,example-sensor";
 		input-gpios = <&gpiob 2 GPIO_ACTIVE_HIGH>;
@@ -16,11 +16,3 @@
 		blink-period-ms = <1000>;
 	};
 };
-
-&zephyr_udc0 {
-	cdc_acm_uart0 {
-		compatible = "zephyr,cdc-acm-uart";
-		label = "Zephyr USB CDC-ACM";
-	};
-};
-

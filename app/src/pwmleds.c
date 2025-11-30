@@ -59,7 +59,7 @@ static void start_pwmleds(void*, void*, void*)
 		}
 	}
 
-	LOG_INF("Done calibrating; maximum/minimum periods %u/%lu nsec\n", max_period, MIN_PERIOD);
+	LOG_INF("Done calibrating; maximum/minimum periods %u/%lu nsec", max_period, MIN_PERIOD);
 
 	period = max_period;
 	while (1) {
