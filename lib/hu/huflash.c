@@ -14,6 +14,7 @@
 
 #define ASCII85_ERROR_CODE_START    255
 #define ASCII85_MAX_CHUNK_SIZE      256
+
 enum {
     ARG_FLASH_CMD,
     ARG_FLASH_PARTITION,
@@ -158,13 +159,14 @@ static void _flash(void* h, int argc, const char** argv)
         if (rc != 0)
             goto fw_upgrade_error;
 
-        struct hup_handle* handle = (struct hup_handle*)h;
         int size = strtol(argv[ARG_FLASH_LENGTH], NULL, 16);
         if (size > ASCII85_MAX_CHUNK_SIZE)
         {
             rc = -EINVAL;
             goto fw_upgrade_error;
         }
+
+        struct hup_handle* handle = (struct hup_handle*)h;
         int offset = strtol(argv[ARG_FLASH_OFFSET], NULL, 16);
         uint8_t* ptr = (uint8_t*)argv[ARG_FLASH_ASCII85_DATA];
         int32_t len = strlen(ptr);
@@ -177,7 +179,7 @@ static void _flash(void* h, int argc, const char** argv)
         if (rc != 0)
             goto fw_upgrade_error;
 
-        rc = flash_area_write(fa, offset, ptr, size);
+        rc = flash_area_write(fa, offset, handle->tx_buffer, size);
         if (rc != 0)
             goto fw_upgrade_error;
         _set_status(h, NOERROR);
