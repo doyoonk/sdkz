@@ -5,68 +5,54 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/logging/log.h>
-LOG_MODULE_DECLARE(app, CONFIG_LOG_DEFAULT_LEVEL);
-
 #include <app/udp.h>
+#include <app/app_api.h>
 #include <hu/hupacket.h>
 
 #include <zephyr/kernel.h>
 #include <zephyr/net/socket.h>
 #include <zephyr/posix/sys/socket.h>
 #include <zephyr/posix/unistd.h>
+#include <zephyr/logging/log.h>
 
 #include <huerrno.h>
 #include <stdio.h>
 
+LOG_MODULE_DECLARE(hup_server, CONFIG_LOG_DEFAULT_LEVEL);
+
 #define MY_PORT     4241
 
-struct hup_udp_data
+struct handle
 {
-    int sock;
-	struct sockaddr client;
-	socklen_t client_len;
+	void* hup;
+	void* drv;
 	char buffer[RECV_BUFFER_SIZE];
-
-    void* h;
 };
 
-static ssize_t udp_send(const void* buffer, size_t size, void* user_data)
+void* init_hup_server(const struct app_api* api, void* arg1, void* arg2, void* arg3)
 {
-	struct hup_udp_data* data = (struct hup_udp_data*)user_data;
-	ssize_t ret = sendto(data->sock, buffer, size, 0, &data->client, data->client_len);
+	struct handle* h;
 
-	if (ret < 0)
+	h = malloc(sizeof(struct handle));
+	if (h == NULL)
 	{
-		NET_ERR("UDP: Failed to send %d", errno);
-		ret = -errno;
+		LOG_ERR("Not enough memory");
+		return NULL;
 	}
-	return ret;
-}
 
-static void hup_udp_thread(void* arg1, void* arg2, void* arg3)
-{
-	struct hup_udp_data* data = (struct hup_udp_data*)arg1;
-	int received;
-
-	data->h = init_hupacket(NULL, udp_send, arg1);
-	if (data->h != NULL)
+	h->drv = api->init(arg1, arg2, arg3);
+	h->hup = init_hupacket(NULL, api->send, h->drv);
+	if (h->drv != NULL && h->hup != NULL)
 	{
-	    data->sock = init_udp(INADDR_ANY, MY_PORT);
-		data->client_len = sizeof(data->client);
+		int received;
 		while (1)
 		{
-			received = recvfrom(data->sock, data->buffer, sizeof(data->buffer), 0,
-				&data->client, &data->client_len);
-
+			received = api->recv(h->drv, h->buffer, sizeof(h->buffer));
 			if (received < 0)
 				NET_ERR("UDP : Connection error %d", errno);
 			else if (received)
-				process_hupacket(data->h, data->buffer, received);
+				process_hupacket(h->hup, h->buffer, received);
 		}
 	}
 	LOG_ERR("can not start hupacket udp");
 }
-
-static struct hup_udp_data hup_udp_data;
-K_THREAD_DEFINE(pudp, 1024, hup_udp_thread, (void*)&hup_udp_data, NULL, NULL, 5, 0, 0);
