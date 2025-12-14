@@ -39,7 +39,7 @@ int init_bbram()
 	}
 
 	boot_counter++;
-	LOG_INF("bbram size is %d, Writing new boot count to BBRAM: %u", bbram_size, boot_counter);
+	LOG_INF("bbram size is %d, Written new boot count: %u", bbram_size, boot_counter);
 	ret = bbram_write(bbram_dev, 0, 1, (uint8_t*)&boot_counter);
 	if (ret != 0)
 	{

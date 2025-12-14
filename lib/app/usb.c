@@ -16,6 +16,7 @@
 
 #include <zephyr/usb/usbd.h>
 #include <zephyr/logging/log.h>
+
 LOG_MODULE_REGISTER(acm, LOG_LEVEL_INF);
 
 static inline void print_baudrate(const struct device *dev)
