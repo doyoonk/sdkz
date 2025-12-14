@@ -114,5 +114,5 @@ void deinit_hup_server(void *handle, const struct app_api* api)
 	if (h->hup != NULL)
 		deinit_hupacket(h->hup);
 
-	free(handle);
+	pfree(handle);
 }
