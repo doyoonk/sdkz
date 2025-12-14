@@ -44,18 +44,22 @@ command:
 # Create a new virtual environment and activate: -linux/MacOS
 python3 -m venv ~/sdkz/.venv && . ~/sdkz/.venv/bin/activate
 # Create a new virtual environment and activate: -Windows
-cd %HOMEPATH%
-python -m venv sdkz\.venv && .\sdkz\.venv\Scripts\activate
+cd
+
+# for windows
+python -m venv sdkz/.venv && ./sdkz/.venv/Scripts/activate
+# for macOS/Linux
+python -m venv sdkz/.venv && . ./sdkz/.venv/bin/activate
+
 # initialize sdkz for the sdk for zephyr application (main branch)
 python -m pip install --upgrade pip && python -m pip install west
 
 west init -m https://github.com/doyoonk/sdkz.git --mr main sdkz
 
-cd sdkz && west update
-west zephyr-export && west packages pip --install
+cd sdkz && west update && west zephyr-export
 
 # update Zephyr modules
-cd zephyr && west sdk install && cd ..
+cd zephyr && west packages pip --install && west sdk install && cd ..
 ```
 
 ### Building and running
