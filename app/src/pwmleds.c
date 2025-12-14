@@ -14,14 +14,14 @@
 LOG_MODULE_DECLARE(app, CONFIG_APP_LOG_LEVEL);
 
 #include <zephyr/kernel.h>
-#include <zephyr/sys/printk.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/pwm.h>
-#include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/led.h>
 
 #include <stdint.h>
 #include <stdbool.h>
+
+#if CONFIG_LED_PWM
 
 static const struct pwm_dt_spec pwm_led0 = PWM_DT_SPEC_GET(DT_ALIAS(pwm_led0));
 
@@ -68,7 +68,7 @@ static void start_pwmleds(void*, void*, void*)
 			LOG_ERR("Error %d: failed to set pulse width", ret);
 			return;
 		}
-		//printk("Using period %d\n", period);
+		LOG_DBG("Using period %d", period);
 
 		period = dir ? (period * 2U) : (period / 2U);
 		if (period > max_period) {
@@ -79,7 +79,9 @@ static void start_pwmleds(void*, void*, void*)
 			dir = 1U;
 		}
 
-		k_sleep(K_SECONDS(4U));
+		k_sleep(K_SECONDS(5U));
 	}
 }
-K_THREAD_DEFINE(pwmleds, 512, start_pwmleds, NULL, NULL, NULL, 5, 0, 0);
+K_THREAD_DEFINE(pwmleds, 256, start_pwmleds, NULL, NULL, NULL, 5, 0, 0);
+
+#endif

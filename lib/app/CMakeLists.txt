@@ -11,9 +11,10 @@ include_directories(${ZEPHYR_BASE}/samples/net/common)
 include(${ZEPHYR_BASE}/samples/subsys/usb/common/common.cmake)
 include(${ZEPHYR_BASE}/samples/net/common/common.cmake)
 
-zephyr_library_sources(
+zephyr_library_sources_ifdef(CONFIG_HU_APP
     bbram.c
     settings.c
+    uart.c
     udp.c
     usb.c
 )

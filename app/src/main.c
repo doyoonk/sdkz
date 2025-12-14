@@ -8,6 +8,8 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 
+#include "main.h"
+
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
@@ -18,13 +20,13 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 #include <zephyr/net/net_mgmt.h>
 #include <zephyr/net/net_event.h>
 #include <zephyr/net/conn_mgr_monitor.h>
+#include <zephyr/drivers/gpio.h>
 
 #include <zephyr/version.h>
 
-#include <app/drivers/blink.h>
-
 #include <app_version.h>
 #include <app/usb.h>
+#include <app/app_api.h>
 
 #include <huerrno.h>
 #include <hu/hupacket.h>
@@ -33,14 +35,55 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 #include <net_sample_common.h>
 #include <zephyr/drivers/bbram.h>
 
-#define BLINK_PERIOD_MS_STEP 100U
-#define BLINK_PERIOD_MS_MAX  1000U
+#define MY_PORT     				4241
+#define HUP_UDP_THREAD_STACK_SIZE	(1024 + 256)
+#define HUP_UART_THREAD_STACK_SIZE	(1024)
 
-extern int init_bbram();
-static bool connected;
+struct app_data app =
+{
+	.connected = false,
+
+	.hup_uart = NULL,
+	.hup_udp = NULL,
+};
+
+K_THREAD_STACK_DEFINE(hup_udp_stack_area, HUP_UDP_THREAD_STACK_SIZE);
+K_THREAD_STACK_DEFINE(hup_uart_stack_area, HUP_UART_THREAD_STACK_SIZE);
+
+#if !CONFIG_LED_PWM
+#define LED0_NODE DT_ALIAS(led0)
+static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+
+#if CONFIG_LED_TIMER
+static struct k_timer blink_timer;
+static void _timer_handler(struct k_timer *timer)
+{
+	gpio_pin_toggle_dt(&led);
+}
+
+static int init_blink_led()
+{
+	int ret;
+	if (!gpio_is_ready_dt(&led))
+	{
+		LOG_ERR("blink led gpio not ready");
+		return -ENXIO;
+	}
+
+	ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
+	if (ret != 0)
+	{
+		LOG_ERR("blink led gpio not ready, error %d", ret);
+		return ret;
+	}
+	k_timer_init(&blink_timer, _timer_handler, NULL);
+	k_timer_start(&blink_timer, K_MSEC(1000), K_MSEC(1000));
+	return 0;
+}
+#endif
+#endif
 
 #if CONFIG_NET_CONNECTION_MANAGER
-static struct net_mgmt_event_callback mgmt_cb = { 0 };
 #define EVENT_MASK (NET_EVENT_L4_CONNECTED | NET_EVENT_L4_DISCONNECTED)
 
 static void event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt_event, struct net_if *iface)
@@ -48,17 +91,28 @@ static void event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt_even
 	ARG_UNUSED(iface);
 	ARG_UNUSED(cb);
 
-	if ((mgmt_event & EVENT_MASK) != mgmt_event) {
+	if ((mgmt_event & EVENT_MASK) != mgmt_event)
+	{
 		return;
 	}
 
-	if (mgmt_event == NET_EVENT_L4_CONNECTED) {
-		connected = true;
+	if (mgmt_event == NET_EVENT_L4_CONNECTED)
+	{
+		if (!app.connected)
+		{
+			LOG_INF("app event l4 connected");
+			app.connected = true;
+		}
 		return;
 	}
 
-	if (mgmt_event == NET_EVENT_L4_DISCONNECTED) {
-		connected = false;
+	if (mgmt_event == NET_EVENT_L4_DISCONNECTED)
+	{
+		if (app.connected)
+		{
+			LOG_INF("app event l4 disconnected");
+			app.connected = false;
+		}
 		return;
 	}
 }
@@ -68,95 +122,78 @@ static int init_app(void)
 {
 #if CONFIG_NET_IPV4
 	struct net_if* iface = net_if_get_default();
-
 	if (net_if_flag_is_set(iface, NET_IF_IPV4))
 	{
 #if CONFIG_NET_CONNECTION_MANAGER
-		net_mgmt_init_event_callback(&mgmt_cb, event_handler, EVENT_MASK);
-		net_mgmt_add_event_callback(&mgmt_cb);
+		net_mgmt_init_event_callback(&app.mgmt_cb, event_handler, EVENT_MASK);
+		net_mgmt_add_event_callback(&app.mgmt_cb);
 		conn_mgr_mon_resend_status();
 #endif
 		init_vlan();
 		init_tunnel();
 	}
 #endif
-
 	init_bbram();
 
-	return init_usb();
+	return init_app_usb();
 }
 
 static void deinit_app()
 {
-	net_mgmt_del_event_callback(&mgmt_cb);
+	deinit_hup_server(app.hup_uart, &uart_interrupt);
+	deinit_hup_server(app.hup_udp, &udp_server);
+
+#if CONFIG_NET_CONNECTION_MANAGER
+	net_mgmt_del_event_callback(&app.mgmt_cb);
+#endif
 }
 
 int main(void)
 {
-	int ret;
-	unsigned int period_ms = BLINK_PERIOD_MS_MAX;
-	const struct device *sensor, *blink;
-	struct sensor_value last_val = { 0 }, val;
-
 	LOG_INF("Zephyr Example Application %s/0x%08x", APP_VERSION_STRING, APPVERSION);
 
- #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_ccm))
-	LOG_INF("ccm size %d: start 0x%08x, data end 0x%08x"
-		, DT_REG_SIZE(DT_CHOSEN(zephyr_ccm))
-		, (size_t)__ccm_start, (size_t)__ccm_data_end);
-	LOG_INF("palloc start 0x%08x end 0x%08x"
-		, (size_t)__ccm_start
-		, (size_t)__ccm_start + DT_REG_SIZE(DT_CHOSEN(zephyr_ccm)));
-	palloc_init(__ccm_start, __ccm_start + DT_REG_SIZE(DT_CHOSEN(zephyr_ccm)));
+#if !CONFIG_LED_PWM && CONFIG_LED_TIMER
+	init_blink_led();
+#endif
+
+ #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_dtcm))
+ #if 0
+ 	LOG_INF("The total used CCM area   : [%p, %p)", &__dtcm_start, &__dtcm_end);
+	LOG_INF("Zero initialized BSS area : [%p, %p)", &__dtcm_bss_start, &__dtcm_bss_end);
+	LOG_INF("Uninitialized NOINIT area : [%p, %p)", &__dtcm_noinit_start, &__dtcm_noinit_end);
+	LOG_INF("Initialised DATA area     : [%p, %p)", &__dtcm_data_start, &__dtcm_data_end);
+	LOG_INF("Start of DATA in FLASH    : %p", &__dtcm_data_load_start);
+#endif
+	LOG_INF("ccm size %d: start %p/%p, data end %p"
+		, DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm))
+		, &__dtcm_start, &__dtcm_end, &__dtcm_data_end);
+	LOG_INF("palloc start %p end 0x%08x, "
+		, &__dtcm_end
+		, (size_t)&__dtcm_end + (DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)) - ((size_t)&__dtcm_end - (size_t)&__dtcm_start)) );
+	palloc_init(__dtcm_start, __dtcm_start + DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)));
  #endif
 
 	init_app();
 
-	sensor = DEVICE_DT_GET(DT_NODELABEL(example_sensor));
-	if (!device_is_ready(sensor)) {
-		LOG_ERR("Sensor not ready");
-		goto exit_main;
+	LOG_INF("hu packet server start for UDP port %d", MY_PORT);
+	app.hup_udp = init_hup_server(&udp_server, "hup_udp"
+		, hup_udp_stack_area, K_THREAD_STACK_SIZEOF(hup_udp_stack_area)
+		, (void*)MY_PORT, NULL, NULL);
+
+	LOG_INF("hu packet server start for USB cdc acm uart");
+	app.hup_uart = init_hup_server(&uart_interrupt, "hup_acm"
+		, hup_uart_stack_area, K_THREAD_STACK_SIZEOF(hup_uart_stack_area)
+		, (void*)DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart), (void*)115200, "n81");
+
+
+	while (1)
+	{
+#if !CONFIG_LED_PWM && !CONFIG_LED_TIMER		
+		gpio_pin_toggle_dt(&led);
+#endif
+		k_sleep(K_MSEC(1000));
 	}
 
-	blink = DEVICE_DT_GET(DT_NODELABEL(blink_led));
-	if (!device_is_ready(blink)) {
-		LOG_ERR("Blink LED not ready");
-		goto exit_main;
-	}
-
-	LOG_INF("Use the sensor to change LED blinking period");
-	blink_set_period_ms(blink, period_ms);
-
-	while (1) {
-		ret = sensor_sample_fetch(sensor);
-		if (ret < 0) {
-			LOG_ERR("Could not fetch sample (%d)", ret);
-			goto exit_main;
-		}
-
-		ret = sensor_channel_get(sensor, SENSOR_CHAN_PROX, &val);
-		if (ret < 0) {
-			LOG_ERR("Could not get sample (%d)", ret);
-			goto exit_main;
-		}
-
-		if ((last_val.val1 == 0) && (val.val1 == 1)) {
-			if (period_ms == 0U) {
-				period_ms = BLINK_PERIOD_MS_MAX;
-			} else {
-				period_ms -= BLINK_PERIOD_MS_STEP;
-			}
-
-			LOG_INF("Proximity detected, setting LED period to %u ms", period_ms);
-			blink_set_period_ms(blink, period_ms);
-		}
-
-		last_val = val;
-
-		k_sleep(K_MSEC(100));
-	}
-
-exit_main:
 	deinit_app();
 	return 0;
 }
@@ -164,7 +201,6 @@ exit_main:
 static void _ver(void* h, int argc, const char** argv)
 {
 	hupacket_ack_response(h, NULL);
-	hupacket_record_int(h, NULL, NOERROR);
 	hupacket_record_str(h, NULL, APP_VERSION_EXTENDED_STRING);
 	hupacket_record_str(h, NULL, KERNEL_VERSION_STRING);
 	hupacket_record_str(h, NULL, __DATE__ " " __TIME__);

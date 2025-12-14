@@ -19,7 +19,7 @@ extern "C"
 {
 #endif
 
-typedef ssize_t (*send_func)(const void* buffer, size_t size, void* user_data);
+typedef ssize_t (*send_func)(void* h, const uint8_t* buffer, size_t size);
 struct hup_handle
 {
     int argc;
@@ -62,6 +62,7 @@ struct hup_resp
 }
 
 void* init_hupacket(void* h, send_func send, void* user_data);
+void deinit_hupacket(void* h);
 void reset_hupacket(void* h);
 void process_hupacket(void* h, uint8_t* data, size_t data_len);
 
@@ -78,7 +79,7 @@ void hupacket_record_hex(void* h, char* buffer, const uint32_t val);
 
 
 void hupacket_ack_response(void* h, char* buffer);
-void hupacket_nak_response(void* h, char* buffer);
+void hupacket_nak_response(void* h, char* buffer, int errno);
 
 int hupacket_send_buffer(void* h, char* buffer);
 

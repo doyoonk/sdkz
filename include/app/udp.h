@@ -9,6 +9,4 @@
 
 #include <stdint.h>
 
-int init_udp(uint32_t addr, int port);
-
 #endif // __UDP_H__

@@ -31,27 +31,17 @@ int init_bbram()
 	size_t bbram_size = 0;
 	int ret = bbram_get_size(bbram_dev, &bbram_size);
 	
-	LOG_INF("bbram size is %d", bbram_size);
-
 	ret = bbram_read(bbram_dev, 0, 1, (uint8_t*)&boot_counter);
-	if (ret == 0)
-	{
-		LOG_INF("Previous boot count: %u", boot_counter);
-	}
-	else
+	if (ret != 0)
 	{
 		LOG_ERR("Failed to read from backup RAM (err %d)", ret);
 		return ret;
 	}
 
 	boot_counter++;
-	LOG_INF("Writing new boot count to BBRAM: %u", boot_counter);
+	LOG_INF("bbram size is %d, Writing new boot count to BBRAM: %u", bbram_size, boot_counter);
 	ret = bbram_write(bbram_dev, 0, 1, (uint8_t*)&boot_counter);
-	if (ret == 0)
-	{
-		LOG_INF("Write successful. Press RESET to test again.");
-	}
-	else
+	if (ret != 0)
 	{
 		LOG_ERR("Failed to write to backup RAM (err %d)", ret);
 		return ret;

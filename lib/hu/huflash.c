@@ -80,14 +80,11 @@ static inline void _set_status(void*h, int rc)
     if (rc == 0)
         hupacket_ack_response(h, NULL);
     else
-        hupacket_nak_response(h, NULL);
-    hupacket_record_int(h, NULL, rc);
+        hupacket_nak_response(h, NULL, rc);
 }
 
-static inline void _set_done(void*h, int argc, const char** argv
-    , const struct flash_area* fa, int from, int to)
+static inline void _set_done(void*h, int argc, const char** argv, int from, int to)
 {
-    close_flash_partition(fa);
     if (to >= argc )
         to = argc - 1;
     for (int i = from; i <= to; i ++)
@@ -117,7 +114,8 @@ fw_upgrade_error:
     _set_status(h, rc);
 
 fw_upgrade_done:
-    _set_done(h, argc, argv, fa, ARG_FLASH_PARTITION, ARG_FLASH_WRITE_PROTECT);
+    close_flash_partition(fa);
+    _set_done(h, argc, argv, ARG_FLASH_PARTITION, ARG_FLASH_WRITE_PROTECT);
 #endif
 }
 DEFINE_HUP_CMD(hup_cmd_wrprt, "wrprt", _wrprt);
@@ -144,7 +142,8 @@ fw_upgrade_error:
     _set_status(h, rc);
 
 fw_upgrade_done:
-    _set_done(h, argc, argv, fa, ARG_FLASH_PARTITION, ARG_FLASH_PARTITION);
+    close_flash_partition(fa);
+    _set_done(h, argc, argv, ARG_FLASH_PARTITION, ARG_FLASH_PARTITION);
 }
 DEFINE_HUP_CMD(hup_cmd_erase, "erase", _erase);
 
@@ -173,7 +172,7 @@ static void _flash(void* h, int argc, const char** argv)
         int bin_len = decode_ascii85(ptr, len, handle->tx_buffer, (ASCII85_MAX_CHUNK_SIZE * 5));
 
         if (bin_len < 0)
-            rc = bin_len + ASCII85_ERROR_CODE_START - EASCII85;
+            rc = -(bin_len + ASCII85_ERROR_CODE_START + EASCII85);
         if (rc == 0 && bin_len != size)
             rc = -EDESZA85;
         if (rc != 0)
@@ -189,6 +188,7 @@ fw_upgrade_error:
     _set_status(h, rc);
 
 fw_upgrade_done:
-    _set_done(h, argc, argv, fa, ARG_FLASH_PARTITION, ARG_FLASH_LENGTH);
+    close_flash_partition(fa);
+    _set_done(h, argc, argv, ARG_FLASH_PARTITION, ARG_FLASH_LENGTH);
 }
 DEFINE_HUP_CMD(hup_cmd_flash, "flash", _flash);

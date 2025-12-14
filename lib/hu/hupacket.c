@@ -5,8 +5,6 @@
  */
 
 /* 
- * ASCII85:
- *
  * Packet: ENQ record_data RS record_data RS ... [EOT CRC16] ETX
  * 	- CRC16: hex string
  *  - example packet: flash = offset, binary size, data(ascii85 encoded) for binary
@@ -82,6 +80,12 @@ void* init_hupacket(void* h, send_func send, void* user_data)
 	return hup;
 }
 
+void deinit_hupacket(void* h)
+{
+	if (h != NULL)
+		pfree(h);
+}
+
 static void seperate_header(struct hup_handle* h, char** ptr, char** dst, char ch)
 {
 	char* tmp;
@@ -102,8 +106,7 @@ static void process_data(struct hup_handle* h)
 		uint16_t crc_received = strtoul(h->crc16, NULL, 16);
 		if (crc_calculated != crc_received)
 		{
-			hupacket_nak_response(h, h->tx_buffer);
-			hupacket_record_int(h, h->tx_buffer, -ENMCRC16);
+			hupacket_nak_response(h, h->tx_buffer, -ENMCRC16);
 			hupacket_send_buffer(h, h->tx_buffer);
 		}
 	}
@@ -236,7 +239,7 @@ void hupacket_append_char(void* h, char* buffer, const char ch)
 }
 
 void hupacket_append_int(void* h, char* buffer, const int val)
-{
+{                   // 123456789012
 	char buf[12];	// -2147483647\x00
 	char* ptr = itoa(val, buf, 10);
 	if (ptr != NULL)
@@ -244,7 +247,7 @@ void hupacket_append_int(void* h, char* buffer, const int val)
 }
 
 void hupacket_append_hex(void* h, char* buffer, const uint32_t val)
-{
+{                   // 123456789
 	char buf[9];	// FFFFFFFF\x00
 	char* ptr = itoa(val, buf, 16);
 	if (ptr != NULL)
@@ -274,11 +277,13 @@ void hupacket_record_hex(void* h, char* buffer, const uint32_t val)
 void hupacket_ack_response(void* h, char* buffer)
 {
 	hupacket_reset_buffer(h, buffer, ACK_OF_RESPONSE);
+	hupacket_record_int(h, buffer, NOERROR);
 }
 
-void hupacket_nak_response(void* h, char* buffer)
+void hupacket_nak_response(void* h, char* buffer, int errno)
 {
 	hupacket_reset_buffer(h, buffer, NAK_OF_RESPONSE);
+	hupacket_record_int(h, buffer, errno);
 }
 
 int hupacket_send_buffer(void* handle, char* buffer)
@@ -295,5 +300,5 @@ int hupacket_send_buffer(void* handle, char* buffer)
 		hupacket_append_hex(h, buffer, crc_calculated);
 	}
 	hupacket_append_char(h, buffer, END_OF_PACKET);
-	return h->send(buffer, strlen(buffer), h->user_data);
+	return h->send(h->user_data, buffer, strlen(buffer));
 }

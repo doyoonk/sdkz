@@ -5,5 +5,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+config HU_APP
+	bool "Support for HU APP library"
+	help
+	  This option enables the 'HU APP' library
+
 source "${ZEPHYR_BASE}/samples/subsys/usb/common/Kconfig.sample_usbd"
 source "${ZEPHYR_BASE}/samples/net/common/Kconfig"
