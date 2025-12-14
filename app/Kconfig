@@ -16,4 +16,3 @@ endmenu
 module = APP
 module-str = APP
 source "subsys/logging/Kconfig.template.log_config"
-source "samples/subsys/usb/common/Kconfig.sample_usbd"

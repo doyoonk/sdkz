@@ -102,12 +102,14 @@ static void process_data(struct hup_handle* h)
 {
 	if (!h->response && h->crc16 != NULL)
 	{
-		uint16_t crc_calculated = crc16(CRC16_CCITT_POLY, PRESET_VALUE, h->buffer, h->state);
+		uint16_t crc_calculated = crc16(CRC16_CCITT_POLY, PRESET_VALUE
+			, h->buffer, (size_t)h->crc16 - (size_t)h->buffer - 1);
 		uint16_t crc_received = strtoul(h->crc16, NULL, 16);
 		if (crc_calculated != crc_received)
 		{
 			hupacket_nak_response(h, h->tx_buffer, -ENMCRC16);
 			hupacket_send_buffer(h, h->tx_buffer);
+			return;
 		}
 	}
 
@@ -168,7 +170,7 @@ void process_hupacket(void* handle, uint8_t* data, size_t data_len)
 
 			h->state ++;
 			h->response = ch != ENQ_OF_COMMAND;
-			h->argv[h->argc ++] =	&h->buffer[h->state];
+			h->argv[h->argc ++] = &h->buffer[h->state];
 		}
 		else
 		{
@@ -202,26 +204,6 @@ void process_hupacket(void* handle, uint8_t* data, size_t data_len)
 	}
 }
 
-void hupacket_reset_buffer(void* handle, char* buffer, char res)
-{
-	struct hup_handle* h = handle;
-	if (buffer == NULL)
-		buffer = &h->tx_buffer[0];
-	*buffer = '\0';
-	hupacket_append_char(h, buffer, res);
-	if (h->id)
-	{
-		hupacket_append_str(h, buffer, h->id);
-		hupacket_append_char(h, buffer, ID_MARK);
-	}
-	hupacket_append_str(h, buffer, h->argv[0]);
-	if (h->sequence)
-	{
-		hupacket_append_char(h, buffer, SEQUENCE_MARK);
-		hupacket_append_str(h, buffer, h->sequence);
-	}
-}
-
 void hupacket_append_str(void* handle, char* buffer, const char* str)
 {
 	struct hup_handle* h = handle;
@@ -229,6 +211,7 @@ void hupacket_append_str(void* handle, char* buffer, const char* str)
 		buffer = &h->tx_buffer[0];
 	strcat(buffer, str);
 }
+
 void hupacket_append_char(void* h, char* buffer, const char ch)
 {
 	if (ch != 0)
@@ -237,7 +220,6 @@ void hupacket_append_char(void* h, char* buffer, const char ch)
 		hupacket_append_str(h, buffer, sch);
 	}
 }
-
 void hupacket_append_int(void* h, char* buffer, const int val)
 {                   // 123456789012
 	char buf[12];	// -2147483647\x00
@@ -245,7 +227,6 @@ void hupacket_append_int(void* h, char* buffer, const int val)
 	if (ptr != NULL)
 		hupacket_append_str(h, buffer, buf);
 }
-
 void hupacket_append_hex(void* h, char* buffer, const uint32_t val)
 {                   // 123456789
 	char buf[9];	// FFFFFFFF\x00
@@ -260,13 +241,11 @@ void hupacket_record_str(void* h, char* buffer, const char* const str)
 	hupacket_append_char(h, buffer, RECORD_MARK);
 	hupacket_append_str(h, buffer, str);
 }
-
 void hupacket_record_int(void* h, char* buffer, const int val)
 {
 	hupacket_append_char(h, buffer, RECORD_MARK);
 	hupacket_append_int(h, buffer, val);
 }
-
 void hupacket_record_hex(void* h, char* buffer, const uint32_t val)
 {
 	hupacket_append_char(h, buffer, RECORD_MARK);
@@ -274,16 +253,34 @@ void hupacket_record_hex(void* h, char* buffer, const uint32_t val)
 }
 
 
+void hupacket_reset_buffer(void* handle, char* buffer, char stx)
+{
+	struct hup_handle* h = handle;
+	if (buffer == NULL)
+		buffer = &h->tx_buffer[0];
+	*buffer = '\0';
+	hupacket_append_char(h, buffer, stx);
+	if (h->id)
+	{
+		hupacket_append_str(h, buffer, h->id);
+		hupacket_append_char(h, buffer, ID_MARK);
+	}
+	hupacket_append_str(h, buffer, h->argv[0]);
+	if (h->sequence)
+	{
+		hupacket_append_char(h, buffer, SEQUENCE_MARK);
+		hupacket_append_str(h, buffer, h->sequence);
+	}
+}
 void hupacket_ack_response(void* h, char* buffer)
 {
 	hupacket_reset_buffer(h, buffer, ACK_OF_RESPONSE);
 	hupacket_record_int(h, buffer, NOERROR);
 }
-
-void hupacket_nak_response(void* h, char* buffer, int errno)
+void hupacket_nak_response(void* h, char* buffer, int rc)
 {
 	hupacket_reset_buffer(h, buffer, NAK_OF_RESPONSE);
-	hupacket_record_int(h, buffer, errno);
+	hupacket_record_int(h, buffer, rc);
 }
 
 int hupacket_send_buffer(void* handle, char* buffer)

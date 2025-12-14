@@ -66,20 +66,21 @@ void deinit_hupacket(void* h);
 void reset_hupacket(void* h);
 void process_hupacket(void* h, uint8_t* data, size_t data_len);
 
-void hupacket_reset_buffer(void* h, char* buffer, char res);
 
 void hupacket_append_str(void* h, char* buffer, const char* str);
 void hupacket_append_char(void* h, char* buffer, const char ch);
 void hupacket_append_int(void* h, char* buffer, const int val);
 void hupacket_append_hex(void* h, char* buffer, const uint32_t val);
 
+
 void hupacket_record_str(void* h, char* buffer, const char* const str);
 void hupacket_record_int(void* h, char* buffer, const int val);
 void hupacket_record_hex(void* h, char* buffer, const uint32_t val);
 
 
+void hupacket_reset_buffer(void* h, char* buffer, char res);
 void hupacket_ack_response(void* h, char* buffer);
-void hupacket_nak_response(void* h, char* buffer, int errno);
+void hupacket_nak_response(void* h, char* buffer, int rc);
 
 int hupacket_send_buffer(void* h, char* buffer);
 

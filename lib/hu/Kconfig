@@ -18,4 +18,4 @@ config HU_PACKET
 
 config HU_PACKET_SIZE
 	int "HU packet buffer size"
-	default 1530
+	default 1536

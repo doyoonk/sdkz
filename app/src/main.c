@@ -150,7 +150,7 @@ static void deinit_app()
 
 int main(void)
 {
-	LOG_INF("Zephyr Example Application %s/0x%08x", APP_VERSION_STRING, APPVERSION);
+	LOG_INF("Zephyr Example Application %s/0x%08x, %s", APP_VERSION_STRING, APPVERSION, __DATE__ " " __TIME__);
 
 #if !CONFIG_LED_PWM && CONFIG_LED_TIMER
 	init_blink_led();

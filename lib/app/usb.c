@@ -27,18 +27,18 @@ static inline void print_baudrate(const struct device *dev)
 	if (ret) {
 		LOG_WRN("Failed to get baudrate, ret code %d", ret);
 	} else {
-		LOG_INF("Baudrate %u", baudrate);
+		LOG_DBG("Baudrate %u", baudrate);
 	}
 }
 
 static struct usbd_context *sample_usbd;
-#if CONFIG_UART_LINE_CTRL
+#if CONFIG_UART_LINE_CTRL_WAIT_DTR
 static K_SEM_DEFINE(dtr_sem, 0, 1);
 #endif
 
 static void sample_msg_cb(struct usbd_context *const ctx, const struct usbd_msg *msg)
 {
-	LOG_INF("USBD message: %s", usbd_msg_type_string(msg->type));
+	LOG_DBG("USBD message: %s", usbd_msg_type_string(msg->type));
 
 	if (usbd_can_detect_vbus(ctx)) {
 		if (msg->type == USBD_MSG_VBUS_READY) {
@@ -54,7 +54,7 @@ static void sample_msg_cb(struct usbd_context *const ctx, const struct usbd_msg 
 		}
 	}
 
-#if CONFIG_UART_LINE_CTRL
+#if CONFIG_UART_LINE_CTRL_WAIT_DTR
 	if (msg->type == USBD_MSG_CDC_ACM_CONTROL_LINE_STATE) {
 		uint32_t dtr = 0U;
 
@@ -108,7 +108,7 @@ int init_app_usb(void)
 		LOG_ERR("Failed to enable USB device support");
 		return 0;
 	}
-#if CONFIG_UART_LINE_CTRL
+#if CONFIG_UART_LINE_CTRL_WAIT_DTR
 	LOG_INF("Wait for DTR");
 	k_sem_take(&dtr_sem, K_FOREVER);
 	LOG_INF("DTR set");
