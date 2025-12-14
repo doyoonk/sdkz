@@ -62,7 +62,7 @@ LOG_MODULE_REGISTER(hup, CONFIG_LOG_DEFAULT_LEVEL);
 #define ID_MARK			'@'
 #define SEQUENCE_MARK	':'
 
-#define PRESET_VALUE	0x0000
+#define SEED_CRC16	0x0000
 
 
 void* init_hupacket(void* h, send_func send, void* user_data)
@@ -100,16 +100,20 @@ static void seperate_header(struct hup_handle* h, char** ptr, char** dst, char c
 
 static void process_data(struct hup_handle* h)
 {
-	if (!h->response && h->crc16 != NULL)
+	if (h->crc16 != NULL)
 	{
-		uint16_t crc_calculated = crc16(CRC16_CCITT_POLY, PRESET_VALUE
+		uint16_t crc_calculated = crc16(CRC16_CCITT_POLY, SEED_CRC16
 			, h->buffer, (size_t)h->crc16 - (size_t)h->buffer - 1);
 		uint16_t crc_received = strtoul(h->crc16, NULL, 16);
-		if (crc_calculated != crc_received)
+		h->crc_match = crc_calculated == crc_received;
+		if (!h->crc_match)
 		{
-			hupacket_nak_response(h, h->tx_buffer, -ENMCRC16);
-			hupacket_send_buffer(h, h->tx_buffer);
-			return;
+			if (!h->response)
+			{
+				hupacket_nak_response(h, h->tx_buffer, -ENMCRC16);
+				hupacket_send_buffer(h, h->tx_buffer);
+				return;
+			}
 		}
 	}
 
@@ -167,39 +171,40 @@ void process_hupacket(void* handle, uint8_t* data, size_t data_len)
 				ch != ACK_OF_RESPONSE &&
 				ch != NAK_OF_RESPONSE)
 				continue;
-
+		}
+		switch(ch)
+		{
+		case ENQ_OF_COMMAND:
+		case ACK_OF_RESPONSE:
+		case NAK_OF_RESPONSE:
+			reset_hupacket(h);	
 			h->state ++;
 			h->response = ch != ENQ_OF_COMMAND;
 			h->argv[h->argc ++] = &h->buffer[h->state];
-		}
-		else
-		{
-			switch(ch)
+			break;
+		case END_OF_PACKET:
+			h->buffer[h->state] = '\0';
+			process_data(h);
+			break;
+		case CRC_MARK:
+			if (h->state < sizeof(h->buffer))
 			{
-			case CRC_MARK:
-				if (h->state < sizeof(h->buffer))
-				{
-					h->buffer[h->state ++] = '\0';
-					h->crc16 = &h->buffer[h->state];
-				}
-				else
-				{
-					reset_hupacket(h);
-				}
-				break;
-			case END_OF_PACKET:
-				h->buffer[h->state] = '\0';
-				process_data(h);
-				break;
-			case RECORD_MARK:
-				h->argv[h->argc ++] =	&h->buffer[h->state + 1];
-			default:
-				if (h->state < sizeof(h->buffer))
-					h->buffer[h->state ++] = ch;
-				else
-					reset_hupacket(h);
-				break;
+				h->buffer[h->state ++] = '\0';
+				h->crc16 = &h->buffer[h->state];
 			}
+			else
+			{
+				reset_hupacket(h);
+			}
+			break;
+		case RECORD_MARK:
+			h->argv[h->argc ++] = &h->buffer[h->state + 1];
+		default:
+			if (h->state < sizeof(h->buffer))
+				h->buffer[h->state ++] = ch;
+			else
+				reset_hupacket(h);
+			break;
 		}
 	}
 }
@@ -292,7 +297,7 @@ int hupacket_send_buffer(void* handle, char* buffer)
 	if (h->crc16 != NULL)
 	{
 		char* ptr = buffer + 1;
-		uint16_t crc_calculated = crc16(CRC16_CCITT_POLY, PRESET_VALUE, ptr, strlen(ptr));
+		uint16_t crc_calculated = crc16(CRC16_CCITT_POLY, SEED_CRC16, ptr, strlen(ptr));
 		hupacket_append_char(h, buffer, CRC_MARK);
 		hupacket_append_hex(h, buffer, crc_calculated);
 	}

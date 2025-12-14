@@ -11,6 +11,9 @@
 #include <zephyr/sys/iterable_sections.h>
 #include <zephyr/posix/unistd.h>
 
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
 
 #define RECV_BUFFER_SIZE    CONFIG_HU_PACKET_SIZE
 
@@ -28,6 +31,7 @@ struct hup_handle
     int state;
     char buffer[RECV_BUFFER_SIZE];
     bool response;
+    bool crc_match;
 
     char* id;
     char* sequence;

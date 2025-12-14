@@ -97,11 +97,13 @@ void _async_cb(const struct device *dev, struct uart_event *evt, void *user_data
 static int _send_async(void* user_data, const uint8_t* data_ptr, size_t data_len)
 {
 	struct handle* h = (struct handle*)user_data;
-	while(1) {
+	while(1)
+	{
 		uint32_t written_to_buf = ring_buf_put(&h->tx_buffer, data_ptr, data_len);
 		data_len -= written_to_buf;
 		
-		if(k_sem_take(&h->tx_done, K_NO_WAIT) == 0) {
+		if(k_sem_take(&h->tx_done, K_NO_WAIT) == 0)
+		{
 			_tx_from_queue(h->dev, h);
 		}
 		if(data_len == 0) break;
@@ -116,37 +118,52 @@ static int _send_async(void* user_data, const uint8_t* data_ptr, size_t data_len
 static void _irq_cb(const struct device *dev, void *user_data)
 {
 	struct handle* h = (struct handle*)user_data;
-	while (uart_irq_update(dev) && uart_irq_is_pending(dev)) {
-		if (uart_irq_rx_ready(dev)) {
+	do  {
+		if (!uart_irq_update(dev)) break;
+		if (uart_irq_rx_ready(dev))
+		{
 			int err;
 			uint8_t* bytes;
-			int _claimed = ring_buf_put_claim(&h->rx_buffer, &bytes, UART_FIFO_SIZE);
+			int _claimed = ring_buf_put_claim(&h->rx_buffer, &bytes, RX_BUF_SIZE);
 			int rx_size = uart_fifo_read(dev, bytes, _claimed);
-			if (rx_size < 0) {
+			if (rx_size < 0)
+			{
 				LOG_ERR("uart fifo read error: %d", rx_size);
-				rx_size = 0;
 			}
-			if ((err = ring_buf_put_finish(&h->rx_buffer, rx_size)) != 0)
-				LOG_ERR("error rx ring buffer put:%d", err);
-			if (rx_size > 0)
-				k_sem_give(&h->rx_done);
+			else
+			{
+				if (rx_size > 0)
+				{
+					if ((err = ring_buf_put_finish(&h->rx_buffer, rx_size)) != 0)
+						LOG_ERR("error rx ring buffer put:%d", err);
+					else
+						k_sem_give(&h->rx_done);
+				}
+			}
 		}
 
-		if (uart_irq_tx_ready(dev)) {
+		if (uart_irq_tx_ready(dev))
+		{
 			uint8_t *data_ptr;
-			uint32_t _claimed = ring_buf_get_claim(&h->tx_buffer, &data_ptr, UART_FIFO_SIZE);
-			if(_claimed > 0) {
+			uint32_t _claimed = ring_buf_get_claim(&h->tx_buffer, &data_ptr, TX_BUF_SIZE);
+			if(_claimed > 0)
+			{
 				int sent = uart_fifo_fill(dev, data_ptr, _claimed);
-				ring_buf_get_finish(&h->tx_buffer, sent < 0 ? 0 : sent);
 				if (sent > 0)
+				{
+					ring_buf_get_finish(&h->tx_buffer, sent);
 					k_sem_give(&h->tx_done);
-			} else {
-				ring_buf_get_finish(&h->tx_buffer, 0);
+				}
+			}
+			else
+			{
 				if (ring_buf_is_empty(&h->tx_buffer))
+				{
 					uart_irq_tx_disable(dev);
+				}
 			}
 		}
-	}
+	} while(uart_irq_is_pending(dev));
 }
 
 static int _send_int(void* user_data, const uint8_t* data_ptr, size_t data_len)

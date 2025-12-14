@@ -9,11 +9,14 @@
 LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 
 #include "main.h"
+#include <app_version.h>
+#include <huerrno.h>
 
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
+#include <zephyr/version.h>
 #include <zephyr/drivers/sensor.h>
-#include <zephyr/shell/shell.h>
+#include <zephyr/drivers/bbram.h>
 
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/net_core.h>
@@ -21,23 +24,21 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 #include <zephyr/net/net_event.h>
 #include <zephyr/net/conn_mgr_monitor.h>
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/shell/shell.h>
 
-#include <zephyr/version.h>
+#include <zephyr/sys/reboot.h>
 
-#include <app_version.h>
 #include <app/usb.h>
 #include <app/app_api.h>
 
-#include <huerrno.h>
 #include <hu/hupacket.h>
 #include <hu/palloc.h>
 
 #include <net_sample_common.h>
-#include <zephyr/drivers/bbram.h>
 
 #define MY_PORT     				4241
-#define HUP_UDP_THREAD_STACK_SIZE	(1024 + 256)
-#define HUP_UART_THREAD_STACK_SIZE	(1024)
+#define HUP_UDP_THREAD_STACK_SIZE	(1024 - 128)
+#define HUP_UART_THREAD_STACK_SIZE	(1024 - 512)
 
 struct app_data app =
 {
@@ -207,3 +208,17 @@ static void _ver(void* h, int argc, const char** argv)
 	hupacket_send_buffer(h, NULL);
 }
 DEFINE_HUP_CMD(hup_cmd_ver, "ver", _ver);
+
+static struct k_timer _reboot_timer;
+static void _reboot_timer_handler(struct k_timer *timer)
+{
+	sys_reboot(SYS_REBOOT_COLD);
+}
+static void _reboot(void*h, int argc, const char** argv)
+{
+	k_timer_init(&_reboot_timer, _reboot_timer_handler, NULL);
+	k_timer_start(&_reboot_timer, K_MSEC(1500), K_NO_WAIT);
+	hupacket_ack_response(h, NULL);
+	hupacket_send_buffer(h, NULL);
+}
+DEFINE_HUP_CMD(hup_cmd_reboot, "reboot", _reboot);
