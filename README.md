@@ -41,15 +41,11 @@ the ``sdk`` and all Zephyr modules will be cloned. Run the following
 command:
 
 ```shell
+cd ~
 # Create a new virtual environment and activate: -linux/MacOS
-python3 -m venv ~/sdkz/.venv && . ~/sdkz/.venv/bin/activate
+python3 -m venv sdkz/.venv && . sdkz/.venv/bin/activate
 # Create a new virtual environment and activate: -Windows
-cd
-
-# for windows
 python -m venv sdkz/.venv && ./sdkz/.venv/Scripts/activate
-# for macOS/Linux
-python -m venv sdkz/.venv && . ./sdkz/.venv/bin/activate
 
 # initialize sdkz for the sdk for zephyr application (main branch)
 python -m pip install --upgrade pip && python -m pip install west
@@ -67,7 +63,7 @@ cd zephyr && west packages pip --install && west sdk install && cd ..
 To build the application, run the following command:
 
 ```shell
-cd sdkz
+cd ~/sdkz
 west build -b $BOARD sdk/app -- '-DCONFIG_BOOTLOADER_MCUBOOT=y -DCONFIG_MCUBOOT_SIGNATURE_KEY_FILE="etc/ssl/certs/mcuboot_sign-rsa-2048.pem"'
 ```
 
