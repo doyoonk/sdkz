@@ -31,19 +31,13 @@ enum {
 };
 
 
-#if !defined(CONFIG_MCUBOOT_BOOTLOADER_MODE_RAM_LOAD)
-
-#define FIXED_PARTITION_IS_RUNNING_APP_PARTITION(label) \
-    (FIXED_PARTITION_OFFSET(label) <= CONFIG_FLASH_LOAD_OFFSET && \
-    FIXED_PARTITION_OFFSET(label) + FIXED_PARTITION_SIZE(label) > CONFIG_FLASH_LOAD_OFFSET)
-
-#endif
-
-static struct fixed_partition
+struct fixed_partition
 {
     const char* const partition_name;
     uint8_t id;
-} fixed_partitions[] =
+};
+
+static struct fixed_partition fixed_partitions[] =
 {
 #if (defined(CONFIG_MCUBOOT_BOOTLOADER_MODE_RAM_LOAD) || ! defined(CONFIG_XIP))
  && FIXED_PARTITION_EXISTS(slot0_partition)

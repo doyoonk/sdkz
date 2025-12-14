@@ -58,6 +58,7 @@ static int _settings_init(void) {
 		return ret;
 	}
 	free_space = zms_calc_free_space(&_fs);
+	LOG_INF("Sector count %d, size %d, free space %d", _fs.sector_count, _fs.sector_size, free_space);
 	if (free_space < 0) {
 		return -ENOMEM;
 	}
