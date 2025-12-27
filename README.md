@@ -99,8 +99,17 @@ west twister -T tests --integration
 To build the MCUboot, run the following command:
 
 ```shell
-cd sdkz
+cd ~/sdkz
 west build -b jz_f407ve_dvk//mcuboot bootloader/mcuboot/boot/zephyr -d build/jz_f407ve_dvk/mcuboot
+```
+
+### App Building for jz_f407ve_dvk
+
+To build the App, run the following command:
+
+```shell
+cd ~/sdkz
+west build -b jz_f407ve_dvk sdk/app -d build/jz_f407ve_dvk/app
 ```
 
 ### Documentation

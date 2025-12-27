@@ -110,7 +110,7 @@ void pfree(void* p)
 				_insert_link((link_t*)plink);
 				_num_free++;
 				k_sem_give(&palloc_sem);
-		}
+			}
 		}
 	}
 }
@@ -142,6 +142,7 @@ void* prealloc(void *ap, size_t nbytes)
 		size_t csize = plink->flagNsize & ~PALLOC_ALLOCATED;
 		if (csize < nbytes)
 		{
+			#if 0
 			if (plink->next != NULL && (plink->next->flagNsize & PALLOC_ALLOCATED) == 0)
 			{
 				size_t nsize = plink->next->flagNsize;
@@ -160,6 +161,7 @@ void* prealloc(void *ap, size_t nbytes)
 					return ap;
 				}
 			}
+			#endif
 			void* ptr = palloc(nbytes);
 			if (ptr != NULL)
 			{

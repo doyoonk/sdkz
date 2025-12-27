@@ -17,6 +17,7 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 #include <zephyr/version.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/drivers/bbram.h>
+#include <zephyr/logging/log_ctrl.h>
 
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/net_core.h>
@@ -50,39 +51,6 @@ struct app_data app =
 
 K_THREAD_STACK_DEFINE(hup_udp_stack_area, HUP_UDP_THREAD_STACK_SIZE);
 K_THREAD_STACK_DEFINE(hup_uart_stack_area, HUP_UART_THREAD_STACK_SIZE);
-
-#if !CONFIG_LED_PWM
-#define LED0_NODE DT_ALIAS(led0)
-static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
-
-#if CONFIG_LED_TIMER
-static struct k_timer blink_timer;
-static void _timer_handler(struct k_timer *timer)
-{
-	gpio_pin_toggle_dt(&led);
-}
-
-static int init_blink_led()
-{
-	int ret;
-	if (!gpio_is_ready_dt(&led))
-	{
-		LOG_ERR("blink led gpio not ready");
-		return -ENXIO;
-	}
-
-	ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
-	if (ret != 0)
-	{
-		LOG_ERR("blink led gpio not ready, error %d", ret);
-		return ret;
-	}
-	k_timer_init(&blink_timer, _timer_handler, NULL);
-	k_timer_start(&blink_timer, K_MSEC(1000), K_MSEC(1000));
-	return 0;
-}
-#endif
-#endif
 
 #if CONFIG_NET_CONNECTION_MANAGER
 #define EVENT_MASK (NET_EVENT_L4_CONNECTED | NET_EVENT_L4_DISCONNECTED)
@@ -151,11 +119,7 @@ static void deinit_app()
 
 int main(void)
 {
-	LOG_INF("Zephyr Example Application %s/0x%08x, %s", APP_VERSION_STRING, APPVERSION, __DATE__ " " __TIME__);
-
-#if !CONFIG_LED_PWM && CONFIG_LED_TIMER
-	init_blink_led();
-#endif
+	LOG_INF("Zephyr Example Application %s/0x%08x, %s, %s", APP_VERSION_STRING, APPVERSION, __DATE__ " " __TIME__, KERNEL_VERSION_EXTENDED_STRING);
 
  #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_dtcm))
  #if 0
@@ -189,9 +153,6 @@ int main(void)
 
 	while (1)
 	{
-#if !CONFIG_LED_PWM && !CONFIG_LED_TIMER		
-		gpio_pin_toggle_dt(&led);
-#endif
 		k_sleep(K_MSEC(1000));
 	}
 
@@ -220,5 +181,6 @@ static void _reboot(void*h, int argc, const char** argv)
 	k_timer_start(&_reboot_timer, K_MSEC(1500), K_NO_WAIT);
 	hupacket_ack_response(h, NULL);
 	hupacket_send_buffer(h, NULL);
+	log_flush();
 }
 DEFINE_HUP_CMD(hup_cmd_reboot, "reboot", _reboot);

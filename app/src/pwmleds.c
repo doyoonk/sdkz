@@ -23,13 +23,16 @@ LOG_MODULE_DECLARE(app, CONFIG_APP_LOG_LEVEL);
 
 #if CONFIG_LED_PWM
 
-static const struct pwm_dt_spec pwm_led0 = PWM_DT_SPEC_GET(DT_ALIAS(pwm_led0));
+#define MIN_PERIOD PWM_SEC(2U) / 200U
+#define MAX_PERIOD PWM_SEC(2U)
 
-#define MIN_PERIOD PWM_SEC(1U) / 128U
-#define MAX_PERIOD PWM_SEC(1U)
+static const struct pwm_dt_spec pwm_leds[] = {
+	PWM_DT_SPEC_GET(DT_ALIAS(pwm_led0)),
+};
 
 static void start_pwmleds(void*, void*, void*)
 {
+	uint64_t cycle_per_sec;
 	uint32_t max_period;
 	uint32_t period;
 	uint8_t dir = 0U;
@@ -37,9 +40,11 @@ static void start_pwmleds(void*, void*, void*)
 
 	LOG_INF("PWM-based blinky");
 
-	if (!pwm_is_ready_dt(&pwm_led0)) {
-		LOG_ERR("Error: PWM device %s is not ready", pwm_led0.dev->name);
-		return;
+	for (size_t i = 0; i < ARRAY_SIZE(pwm_leds); i ++) {
+		if (!pwm_is_ready_dt(&pwm_leds[i])) {
+			LOG_ERR("Error: PWM device %s is not ready", pwm_leds[i].dev->name);
+			return;
+		}
 	}
 
 	/*
@@ -49,21 +54,25 @@ static void start_pwmleds(void*, void*, void*)
 	 * Keep its value at least MIN_PERIOD * 4 to make sure
 	 * the sample changes frequency at least once.
 	 */
-	LOG_INF("Calibrating for channel %d...", pwm_led0.channel);
+	for (size_t i = 0; i < ARRAY_SIZE(pwm_leds); i ++) {
+		pwm_get_cycles_per_sec(pwm_leds[i].dev, 1, &cycle_per_sec);
+
+		LOG_INF("%s Cycles per sec %lld, Calibrating for channel %d...", pwm_leds[i].dev->name, cycle_per_sec, pwm_leds[i].channel);
+	}
+
 	max_period = MAX_PERIOD;
-	while (pwm_set_dt(&pwm_led0, max_period, max_period / 2U)) {
+	while (pwm_set_dt(&pwm_leds[0], max_period, max_period / 2U)) {
 		max_period /= 2U;
 		if (max_period < (4U * MIN_PERIOD)) {
 			LOG_ERR("Error: PWM device does not support a period at least %lu", 4U * MIN_PERIOD);
 			return;
 		}
 	}
-
 	LOG_INF("Done calibrating; maximum/minimum periods %u/%lu nsec", max_period, MIN_PERIOD);
 
 	period = max_period;
 	while (1) {
-		ret = pwm_set_dt(&pwm_led0, period, period / 2U);
+		ret = pwm_set_dt(&pwm_leds[0], period, period / 2U);
 		if (ret) {
 			LOG_ERR("Error %d: failed to set pulse width", ret);
 			return;
@@ -82,6 +91,6 @@ static void start_pwmleds(void*, void*, void*)
 		k_sleep(K_SECONDS(5U));
 	}
 }
-K_THREAD_DEFINE(pwmleds, 256, start_pwmleds, NULL, NULL, NULL, 5, 0, 0);
+K_THREAD_DEFINE(pwmleds, 384, start_pwmleds, NULL, NULL, NULL, 5, 0, 0);
 
 #endif

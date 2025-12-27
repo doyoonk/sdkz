@@ -22,6 +22,8 @@ LOG_MODULE_REGISTER(settings, CONFIG_LOG_DEFAULT_LEVEL);
 #include <stdlib.h>
 #include <errno.h>
 
+#if CONFIG_ZMS
+
 #define SETTINGS_PAGE_SIZE			256
 
 static struct zms_fs _fs = {0};
@@ -66,3 +68,5 @@ static int _settings_init(void) {
 }
 
 SYS_INIT(_settings_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
+
+#endif /* CONFIG_ZMS */

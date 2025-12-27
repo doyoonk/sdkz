@@ -22,5 +22,5 @@ CONFIG_GPIO=y
 
 # boot loader : for opspro_n6
 CONFIG_BOOTLOADER_MCUBOOT=y
-CONFIG_MCUBOOT_SIGNATURE_KEY_FILE="etc/ssl/certs/mcuboot_sign-rsa-2048.pem"
+CONFIG_MCUBOOT_SIGNATURE_KEY_FILE="${WEST_TOPDIR}/etc/ssl/certs/mcuboot_sign-rsa-2048.pem"
 CONFIG_MCUBOOT_GENERATE_CONFIRMED_IMAGE=y

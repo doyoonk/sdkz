@@ -15,4 +15,15 @@
 		led-gpios = <&gpioe 15 GPIO_ACTIVE_LOW>;
 		blink-period-ms = <1000>;
 	};
+	aliases {
+		hup-uart = &cdc_acm_uart0;
+	};
+};
+
+&zephyr_udc0 {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+		label = "Zephyr USB CDC-ACM";
+		status = "okay";
+	};
 };

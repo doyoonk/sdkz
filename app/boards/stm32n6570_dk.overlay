@@ -4,7 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <st/n6/stm32n6_rtc.dtsi>
+#include <st/n6/stm32n6-rtc.dtsi>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+#include <zephyr/dt-bindings/pwm/pwm_ifx_tcpwm.h>
+#include <zephyr/dt-bindings/pwm/ra_pwm.h>
+#include <zephyr/dt-bindings/pwm/stm32_pwm.h>
 
 / {
 	example_sensor: example-sensor {
@@ -17,6 +21,22 @@
 		led-gpios = <&gpiog 10 GPIO_ACTIVE_HIGH>;
 		blink-period-ms = <1000>;
 	};
+	pwmleds: pwmleds {
+		compatible = "pwm-leds";
+		status = "okay";
+
+		pwm_led_0: pwm_led_0 {
+			status = "okay";
+			pwms = <&pwm1 1 PWM_USEC(100) (PWM_POLARITY_NORMAL | STM32_PWM_COMPLEMENTARY)>;
+		};
+	};
+	aliases {
+		bbram = &bbram;
+		led0 = &red_led_1;
+		sw0 = &user_button;
+		pwm-led0 = &pwm_led_0;
+		hup-uart = &usart2;
+	};
 };
 
 &clk_lse {
@@ -24,7 +44,7 @@
 };
 
 &rtc {
-	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x10000000>,
+	clocks = <&rcc STM32_CLOCK_BUS_APB4 0x00010000>,
 		<&rcc STM32_SRC_LSE RTC_SEL(1)>;
 
 	status = "okay";
@@ -38,8 +58,16 @@
 	status = "okay";
 };
 
-&ccm0 {
+&timers1 {
+	st,prescaler = <19999>;
 	status = "okay";
+
+	/delete-node/ pwm1;
+	pwm1: pwm {
+		status = "okay";
+		pinctrl-0 = <&tim1_ch1n_pg10>;
+		pinctrl-names = "default";
+	};
 };
 
 &zephyr_udc0 {

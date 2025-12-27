@@ -33,9 +33,7 @@ static inline void print_baudrate(const struct device *dev)
 }
 
 static struct usbd_context *sample_usbd;
-#if CONFIG_UART_LINE_CTRL_WAIT_DTR
 static K_SEM_DEFINE(dtr_sem, 0, 1);
-#endif
 
 static void sample_msg_cb(struct usbd_context *const ctx, const struct usbd_msg *msg)
 {
@@ -55,7 +53,6 @@ static void sample_msg_cb(struct usbd_context *const ctx, const struct usbd_msg 
 		}
 	}
 
-#if CONFIG_UART_LINE_CTRL_WAIT_DTR
 	if (msg->type == USBD_MSG_CDC_ACM_CONTROL_LINE_STATE) {
 		uint32_t dtr = 0U;
 
@@ -64,7 +61,6 @@ static void sample_msg_cb(struct usbd_context *const ctx, const struct usbd_msg 
 			k_sem_give(&dtr_sem);
 		}
 	}
-#endif
 
 	if (msg->type == USBD_MSG_CDC_ACM_LINE_CODING) {
 		print_baudrate(msg->dev);
