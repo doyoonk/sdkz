@@ -17,7 +17,7 @@ LOG_MODULE_REGISTER(app_uart, CONFIG_LOG_DEFAULT_LEVEL);
 
 #define HUP_UART DT_ALIAS(hup_uart)
 
-#if DT_NODE_HAS_STATUS(HUP_UART, okay) && (defined(CONFIG_UART_INTERRUPT_DRIVEN) || defined(CONFIG_UART_ASYNC_API))
+#if DT_NODE_HAS_STATUS(HUP_UART, okay)
 
 #define RX_BUF_SIZE  		512
 #define TX_BUF_SIZE  		512
@@ -118,22 +118,16 @@ static int _send_async(void* user_data, const uint8_t* data_ptr, size_t data_len
 static void _irq_cb(const struct device *dev, void *user_data)
 {
 	struct handle* h = (struct handle*)user_data;
-	do  {
-		if (!uart_irq_update(dev)) break;
-		if (uart_irq_rx_ready(dev))
-		{
+	while (uart_irq_update(dev) && uart_irq_is_pending(dev)) {
+		if (uart_irq_rx_ready(dev)) {
 			int err;
 			uint8_t* bytes;
 			int _claimed = ring_buf_put_claim(&h->rx_buffer, &bytes, RX_BUF_SIZE);
 			int rx_size = uart_fifo_read(dev, bytes, _claimed);
-			if (rx_size < 0)
-			{
+			if (rx_size < 0) {
 				LOG_ERR("uart fifo read error: %d", rx_size);
-			}
-			else
-			{
-				if (rx_size > 0)
-				{
+			} else {
+				if (rx_size > 0) {
 					if ((err = ring_buf_put_finish(&h->rx_buffer, rx_size)) != 0)
 						LOG_ERR("error rx ring buffer put:%d", err);
 					else
@@ -142,28 +136,22 @@ static void _irq_cb(const struct device *dev, void *user_data)
 			}
 		}
 
-		if (uart_irq_tx_ready(dev))
-		{
+		if (uart_irq_tx_ready(dev)) {
 			uint8_t *data_ptr;
 			uint32_t _claimed = ring_buf_get_claim(&h->tx_buffer, &data_ptr, TX_BUF_SIZE);
-			if(_claimed > 0)
-			{
+			if(_claimed > 0) {
 				int sent = uart_fifo_fill(dev, data_ptr, _claimed);
-				if (sent > 0)
-				{
+				if (sent > 0) {
 					ring_buf_get_finish(&h->tx_buffer, sent);
 					k_sem_give(&h->tx_done);
 				}
-			}
-			else
-			{
-				if (ring_buf_is_empty(&h->tx_buffer))
-				{
+			} else {
+				if (ring_buf_is_empty(&h->tx_buffer)) {
 					uart_irq_tx_disable(dev);
 				}
 			}
 		}
-	} while(uart_irq_is_pending(dev));
+	}
 }
 
 static int _send_int(void* user_data, const uint8_t* data_ptr, size_t data_len)
@@ -192,17 +180,6 @@ static int _send_poll(void* user_data, const uint8_t* data_ptr, size_t data_len)
 	return data_len;
 }
 
-static int _recv_async_int(void* user_data, uint8_t* buffer, size_t len)
-{
-	struct handle* h = (struct handle*)user_data;
-	uint32_t ret = ring_buf_get(&h->rx_buffer, buffer, len);
-	while (ret == 0) {
-		k_sem_take(&h->rx_done, K_FOREVER);
-		ret = ring_buf_get(&h->rx_buffer, buffer, len);
-	}
-	return ret;
-}
-
 static int _recv_poll(void* user_data, uint8_t* buffer, size_t len)
 {
 	struct handle* h = (struct handle*)user_data;
@@ -216,13 +193,6 @@ static int _recv_poll(void* user_data, uint8_t* buffer, size_t len)
 	return i;
 }
 
-static void _deinit_uart(void* h)
-{
-	if (h != NULL)
-		free(h);
-}
-
-#if CONFIG_UART_ASYNC_API || CONFIG_UART_INTERRUPT_DRIVEN
 static struct handle* _init_handle(const struct device *dev) {
 	struct handle* h;
 
@@ -246,6 +216,24 @@ static struct handle* _init_handle(const struct device *dev) {
 	ring_buf_init(&h->tx_buffer, sizeof(h->tx_data), h->tx_data);
 #endif
 	return h;
+}
+
+static void _deinit_uart(void* h)
+{
+	if (h != NULL)
+		free(h);
+}
+
+#if CONFIG_UART_ASYNC_API || CONFIG_UART_INTERRUPT_DRIVEN
+static int _recv_async_int(void* user_data, uint8_t* buffer, size_t len)
+{
+	struct handle* h = (struct handle*)user_data;
+	uint32_t ret = ring_buf_get(&h->rx_buffer, buffer, len);
+	while (ret == 0) {
+		k_sem_take(&h->rx_done, K_FOREVER);
+		ret = ring_buf_get(&h->rx_buffer, buffer, len);
+	}
+	return ret;
 }
 #endif
 
