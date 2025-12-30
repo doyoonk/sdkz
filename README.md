@@ -94,22 +94,31 @@ To execute Twister integration tests, run the following command:
 west twister -T tests --integration
 ```
 
-### MCUboot Building for jz_f407ve_dvk
+### Sysbuild for jz_f407vet6
+
+Sysbuild to build Application together with the MCUboot bootloader:
+
+```shell
+cd ~/sdkz
+west build -b jz_f407vet6 sdk/app --sysbuild -d sysbuild/jz_f407vet6
+```
+
+### MCUboot Building for jz_f407vet6
 
 To build the MCUboot, run the following command:
 
 ```shell
 cd ~/sdkz
-west build -b jz_f407ve_dvk//mcuboot bootloader/mcuboot/boot/zephyr -d build/jz_f407ve_dvk/mcuboot
+west build -b jz_f407vet6//mcuboot bootloader/mcuboot/boot/zephyr -d build/jz_f407vet6/mcuboot
 ```
 
-### App Building for jz_f407ve_dvk
+### App Building for jz_f407vet6
 
 To build the App, run the following command:
 
 ```shell
 cd ~/sdkz
-west build -b jz_f407ve_dvk sdk/app -d build/jz_f407ve_dvk/app
+west build -b jz_f407vet6 sdk/app -d build/jz_f407vet6/app
 ```
 
 ### Documentation

@@ -91,6 +91,6 @@ static void start_pwmleds(void*, void*, void*)
 		k_sleep(K_SECONDS(5U));
 	}
 }
-K_THREAD_DEFINE(pwmleds, 384, start_pwmleds, NULL, NULL, NULL, 5, 0, 0);
+K_THREAD_DEFINE(pwmleds, 512, start_pwmleds, NULL, NULL, NULL, 5, 0, 0);
 
 #endif
