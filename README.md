@@ -55,7 +55,7 @@ west init -m https://github.com/doyoonk/sdkz.git --mr main sdkz
 cd sdkz && west update && west zephyr-export
 
 # update Zephyr modules
-cd zephyr && west packages pip --install && west sdk install && cd ..
+cd zephyr && python -m pip install @((west packages pip) -split ' ') && west sdk install && cd ..
 ```
 
 ### Building and running
