@@ -12,45 +12,6 @@
 #include <freq.h>
 
 / {
-	soc {
-		ahbsram1: memory@38000000 {
-			compatible = "zephyr,memory-region", "mmio-sram";
-			clocks = <&rcc STM32_CLOCK(MEM, 4)>, <&rcc STM32_CLOCK(AHB2, 12)>;
-			clock-names = "ahbsram", "ramcfg";
-			zephyr,memory-region = "AHBSRAM1";
-			zephyr,memory-attr = <( DT_MEM_ARM(ATTR_MPU_RAM) )>;
-			reg = <0x38000000 DT_SIZE_K(16)>, <0x52023300 0x80>;
-			status = "disabled";
-		};
-		ahbsram2: memory@38004000 {
-			compatible = "zephyr,memory-region", "mmio-sram";
-			clocks = <&rcc STM32_CLOCK(MEM, 5)>, <&rcc STM32_CLOCK(AHB2, 12)>;
-			clock-names = "ahbsram", "ramcfg";
-			zephyr,memory-region = "AHBSRAM2";
-			zephyr,memory-attr = <( DT_MEM_ARM(ATTR_MPU_RAM) )>;
-			reg = <0x38004000 DT_SIZE_K(16)>, <0x52023380 0x80>;
-			status = "disabled";
-		};
-		venc_ram: memory@34400000 {
-			compatible = "zephyr,memory-region", "mmio-sram";
-			clocks = <&rcc STM32_CLOCK(MEM, 6)>, <&rcc STM32_CLOCK(AHB2, 12)>;
-			clock-names = "venc_ram", "ramcfg";
-			zephyr,memory-region = "VENC_RAM";
-			zephyr,memory-attr = <( DT_MEM_ARM(ATTR_MPU_RAM) )>;
-			reg = <0x34400000 DT_SIZE_K(128)>, <0x52023400 0x80>;
-			status = "disabled";
-		};
-		backup_sram: memory@3c000000 {
-			compatible = "zephyr,memory-region", "st,stm32-backup-sram";
-			clocks = <&rcc STM32_CLOCK(MEM, 7)>, <&rcc STM32_CLOCK(AHB2, 12)>;
-			clock-names = "bkpsram", "ramcfg";
-			zephyr,memory-region = "BACKUP_SRAM";
-			zephyr,memory-attr = <( DT_MEM_ARM(ATTR_MPU_RAM) )>;
-			reg = <0x3c000000 DT_SIZE_K(8)>, <0x52023480 0x80>;
-			status = "disabled";
-		};
-	};
-	
 	axisram: memory@24000000 {
 		compatible = "mmio-sram";
 		reg = <0x24000000 (DT_SIZE_M(2)
