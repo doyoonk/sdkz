@@ -22,7 +22,7 @@ LOG_MODULE_REGISTER(settings, CONFIG_LOG_DEFAULT_LEVEL);
 #include <stdlib.h>
 #include <errno.h>
 
-#if CONFIG_ZMS
+#if CONFIG_ZMS && DT_HAS_FIXED_PARTITION_LABEL(storage_partition)
 
 #define SETTINGS_PAGE_SIZE			256
 
