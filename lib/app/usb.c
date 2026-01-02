@@ -25,11 +25,10 @@ static inline void print_baudrate(const struct device *dev)
 	int ret;
 
 	ret = uart_line_ctrl_get(dev, UART_LINE_CTRL_BAUD_RATE, &baudrate);
-	if (ret) {
+	if (ret)
 		LOG_WRN("Failed to get baudrate, ret code %d", ret);
-	} else {
+	else
 		LOG_DBG("Baudrate %u", baudrate);
-	}
 }
 
 static struct usbd_context *sample_usbd;
@@ -39,32 +38,32 @@ static void sample_msg_cb(struct usbd_context *const ctx, const struct usbd_msg 
 {
 	LOG_DBG("USBD message: %s", usbd_msg_type_string(msg->type));
 
-	if (usbd_can_detect_vbus(ctx)) {
-		if (msg->type == USBD_MSG_VBUS_READY) {
-			if (usbd_enable(ctx)) {
+	if (usbd_can_detect_vbus(ctx))
+	{
+		if (msg->type == USBD_MSG_VBUS_READY)
+		{
+			if (usbd_enable(ctx))
 				LOG_ERR("Failed to enable device support");
-			}
 		}
 
-		if (msg->type == USBD_MSG_VBUS_REMOVED) {
-			if (usbd_disable(ctx)) {
+		if (msg->type == USBD_MSG_VBUS_REMOVED)
+		{
+			if (usbd_disable(ctx))
 				LOG_ERR("Failed to disable device support");
-			}
 		}
 	}
 
-	if (msg->type == USBD_MSG_CDC_ACM_CONTROL_LINE_STATE) {
+	if (msg->type == USBD_MSG_CDC_ACM_CONTROL_LINE_STATE)
+	{
 		uint32_t dtr = 0U;
 
 		uart_line_ctrl_get(msg->dev, UART_LINE_CTRL_DTR, &dtr);
-		if (dtr) {
+		if (dtr)
 			k_sem_give(&dtr_sem);
-		}
 	}
 
-	if (msg->type == USBD_MSG_CDC_ACM_LINE_CODING) {
+	if (msg->type == USBD_MSG_CDC_ACM_LINE_CODING)
 		print_baudrate(msg->dev);
-	}
 }
 
 static int enable_usb_device_next(void)
@@ -72,14 +71,17 @@ static int enable_usb_device_next(void)
 	int err;
 
 	sample_usbd = sample_usbd_init_device(sample_msg_cb);
-	if (sample_usbd == NULL) {
+	if (sample_usbd == NULL)
+	{
 		LOG_ERR("Failed to initialize USB device");
 		return -ENODEV;
 	}
 
-	if (!usbd_can_detect_vbus(sample_usbd)) {
+	if (!usbd_can_detect_vbus(sample_usbd))
+	{
 		err = usbd_enable(sample_usbd);
-		if (err) {
+		if (err)
+		{
 			LOG_ERR("Failed to enable device support");
 			return err;
 		}
@@ -95,13 +97,15 @@ int init_app_usb(void)
 	int ret;
 	const struct device *const uart_dev = DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart);
 
-	if (!device_is_ready(uart_dev)) {
+	if (!device_is_ready(uart_dev))
+	{
 		LOG_ERR("CDC ACM device not ready");
 		return 0;
 	}
 
 	ret = enable_usb_device_next();
-	if (ret != 0) {
+	if (ret != 0)
+	{
 		LOG_ERR("Failed to enable USB device support");
 		return 0;
 	}
@@ -112,12 +116,14 @@ int init_app_usb(void)
 
 	/* They are optional, we use them to test the interrupt endpoint */
 	ret = uart_line_ctrl_set(uart_dev, UART_LINE_CTRL_DCD, 1);
-	if (ret) {
+	if (ret)
+	{
 		LOG_WRN("Failed to set DCD, ret code %d", ret);
 	}
 
 	ret = uart_line_ctrl_set(uart_dev, UART_LINE_CTRL_DSR, 1);
-	if (ret) {
+	if (ret)
+	{
 		LOG_WRN("Failed to set DSR, ret code %d", ret);
 	}
 #endif

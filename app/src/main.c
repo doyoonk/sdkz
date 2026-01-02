@@ -36,6 +36,7 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 #include <hu/palloc.h>
 
 #include <net_sample_common.h>
+#include <soc.h>
 
 #define MY_PORT     				4241
 #define HUP_UDP_THREAD_STACK_SIZE	(1024 - 128)
@@ -49,8 +50,18 @@ struct app_data app =
 	.hup_udp = NULL,
 };
 
-K_THREAD_STACK_DEFINE(hup_udp_stack_area, HUP_UDP_THREAD_STACK_SIZE);
-K_THREAD_STACK_DEFINE(hup_uart_stack_area, HUP_UART_THREAD_STACK_SIZE);
+#if 0 //DT_NODE_EXISTS(DT_CHOSEN(zephyr_dtcm))
+#define app_stack_sect __dtcm_bss_section
+#else
+#define app_stack_sect __kstackmem
+#endif
+
+struct z_thread_stack_element app_stack_sect \
+	__aligned(Z_KERNEL_STACK_OBJ_ALIGN) \
+	hup_udp_stack_area[K_KERNEL_STACK_LEN(HUP_UDP_THREAD_STACK_SIZE)];
+struct z_thread_stack_element app_stack_sect \
+	__aligned(Z_KERNEL_STACK_OBJ_ALIGN) \
+	hup_uart_stack_area[K_KERNEL_STACK_LEN(HUP_UART_THREAD_STACK_SIZE)];
 
 #if CONFIG_NET_CONNECTION_MANAGER
 #define EVENT_MASK (NET_EVENT_L4_CONNECTED | NET_EVENT_L4_DISCONNECTED)
@@ -61,24 +72,18 @@ static void event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt_even
 	ARG_UNUSED(cb);
 
 	if ((mgmt_event & EVENT_MASK) != mgmt_event)
-	{
 		return;
-	}
 
-	if (mgmt_event == NET_EVENT_L4_CONNECTED)
-	{
-		if (!app.connected)
-		{
+	if (mgmt_event == NET_EVENT_L4_CONNECTED) {
+		if (!app.connected) {
 			LOG_INF("app event l4 connected");
 			app.connected = true;
 		}
 		return;
 	}
 
-	if (mgmt_event == NET_EVENT_L4_DISCONNECTED)
-	{
-		if (app.connected)
-		{
+	if (mgmt_event == NET_EVENT_L4_DISCONNECTED) {
+		if (app.connected) {
 			LOG_INF("app event l4 disconnected");
 			app.connected = false;
 		}
@@ -91,8 +96,7 @@ static int init_app(void)
 {
 #if CONFIG_NET_IPV4
 	struct net_if* iface = net_if_get_default();
-	if (net_if_flag_is_set(iface, NET_IF_IPV4))
-	{
+	if (net_if_flag_is_set(iface, NET_IF_IPV4)) {
 #if CONFIG_NET_CONNECTION_MANAGER
 		net_mgmt_init_event_callback(&app.mgmt_cb, event_handler, EVENT_MASK);
 		net_mgmt_add_event_callback(&app.mgmt_cb);
@@ -121,22 +125,24 @@ int main(void)
 {
 	LOG_INF("Zephyr Example Application %s/0x%08x, %s, %s", APP_VERSION_STRING, APPVERSION, __DATE__ " " __TIME__, KERNEL_VERSION_EXTENDED_STRING);
 
- #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_dtcm))
- #if 0
- 	LOG_INF("The total used CCM area   : [%p, %p)", &__dtcm_start, &__dtcm_end);
-	LOG_INF("Zero initialized BSS area : [%p, %p)", &__dtcm_bss_start, &__dtcm_bss_end);
-	LOG_INF("Uninitialized NOINIT area : [%p, %p)", &__dtcm_noinit_start, &__dtcm_noinit_end);
-	LOG_INF("Initialised DATA area     : [%p, %p)", &__dtcm_data_start, &__dtcm_data_end);
-	LOG_INF("Start of DATA in FLASH    : %p", &__dtcm_data_load_start);
+#if DT_NODE_EXISTS(DT_CHOSEN(zephyr_itcm))
+	LOG_INF("itcm size %d(0x%08x)", DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)), DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)));
+	LOG_INF("  start %p end %p size %d(0x%08x)", &__itcm_start, &__itcm_end, (size_t)__itcm_size, (size_t)__itcm_size);
+	LOG_INF("  data load start %p", &__itcm_load_start);
 #endif
-	LOG_INF("ccm size %d: start %p/%p, data end %p"
-		, DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm))
-		, &__dtcm_start, &__dtcm_end, &__dtcm_data_end);
+#if DT_NODE_EXISTS(DT_CHOSEN(zephyr_dtcm))
+	LOG_INF("dtcm size %d(0x%08x)", DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)), DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)));
+	LOG_INF("  start %p end %p", &__dtcm_start, &__dtcm_end);
+	LOG_INF("  bss start %p end %p", &__dtcm_bss_start, &__dtcm_bss_end);
+	LOG_INF("  noinit start %p end %p", &__dtcm_noinit_start, &__dtcm_noinit_end);
+	LOG_INF("  data start %p end %p", &__dtcm_data_start, &__dtcm_data_end);
+	LOG_INF("  data load start %p", &__dtcm_data_load_start);
+
 	LOG_INF("palloc start %p end 0x%08x, "
 		, &__dtcm_end
 		, (size_t)&__dtcm_end + (DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)) - ((size_t)&__dtcm_end - (size_t)&__dtcm_start)) );
 	palloc_init(__dtcm_start, __dtcm_start + DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)));
- #endif
+#endif
 
 	init_app();
 
@@ -151,8 +157,7 @@ int main(void)
 		, (void*)DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart), (void*)115200, "n81");
 
 
-	while (1)
-	{
+	while (1) {
 		k_sleep(K_MSEC(1000));
 	}
 
@@ -170,17 +175,23 @@ static void _ver(void* h, int argc, const char** argv)
 }
 DEFINE_HUP_CMD(hup_cmd_ver, "ver", _ver);
 
-static struct k_timer _reboot_timer;
 static void _reboot_timer_handler(struct k_timer *timer)
 {
 	sys_reboot(SYS_REBOOT_COLD);
 }
 static void _reboot(void*h, int argc, const char** argv)
 {
-	k_timer_init(&_reboot_timer, _reboot_timer_handler, NULL);
-	k_timer_start(&_reboot_timer, K_MSEC(1500), K_NO_WAIT);
+	struct k_timer* reboot_timer;
 	hupacket_ack_response(h, NULL);
 	hupacket_send_buffer(h, NULL);
 	log_flush();
+
+	reboot_timer = palloc(sizeof(struct k_timer));
+	if (!reboot_timer) {
+		sys_reboot(SYS_REBOOT_COLD);
+	} else {
+		k_timer_init(reboot_timer, _reboot_timer_handler, NULL);
+		k_timer_start(reboot_timer, K_MSEC(1500), K_NO_WAIT);
+	}
 }
 DEFINE_HUP_CMD(hup_cmd_reboot, "reboot", _reboot);

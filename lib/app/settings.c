@@ -34,21 +34,21 @@ static struct zms_fs _fs = {0};
 
 // TODO: read/write setting
 
-static int _settings_init(void) {
+static int _settings_init(void)
+{
 	int free_space;
 	int ret;
 	struct flash_pages_info info = {0};
 
 	_fs.flash_device = SETTINGS_PARTITION_DEVICE;
 	_fs.offset = SETTINGS_PARTITION_OFFSET;
-	if (!device_is_ready(_fs.flash_device)) {
+	if (!device_is_ready(_fs.flash_device))
 		return -ENXIO;
-	}
 
 	ret = flash_get_page_info_by_offs(_fs.flash_device, _fs.offset, &info);
-	if (ret) {
+	if (ret)
 		return ret;
-	}
+
 
 	if (info.size == 0)
 		info.size = SETTINGS_PAGE_SIZE;
@@ -56,14 +56,14 @@ static int _settings_init(void) {
 	_fs.sector_count = SETTINGS_PARTITION_SIZE / info.size;
 
 	ret = zms_mount(&_fs);
-	if (ret) {
+	if (ret)
 		return ret;
-	}
+
 	free_space = zms_calc_free_space(&_fs);
 	LOG_INF("Sector count %d, size %d, free space %d", _fs.sector_count, _fs.sector_size, free_space);
-	if (free_space < 0) {
+	if (free_space < 0)
 		return -ENOMEM;
-	}
+
 	return 0;
 }
 

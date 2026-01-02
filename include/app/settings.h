@@ -9,7 +9,8 @@
 
 #include <stdint.h>
 
-struct Property {
+struct Property
+{
     const char* const key;
     uint32_t offset;
     uint32_t length;

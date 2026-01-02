@@ -27,7 +27,7 @@ void*	palloc(size_t);
 void	pfree(void *);
 void*	prealloc(void*, size_t);
 void*	pcalloc (size_t, size_t);
-size_t palloc_stats(size_t* plargest, size_t* psmallest, size_t* plinks);
+size_t  palloc_stats(size_t* plargest, size_t* psmallest, size_t* plinks);
 
 #ifdef __cplusplus
 }

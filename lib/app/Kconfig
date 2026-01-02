@@ -10,5 +10,9 @@ config HU_APP
 	help
 	  This option enables the 'HU APP' library
 
-source "${ZEPHYR_BASE}/samples/subsys/usb/common/Kconfig.sample_usbd"
-source "${ZEPHYR_BASE}/samples/net/common/Kconfig"
+if HU_APP
+
+source "samples/subsys/usb/common/Kconfig.sample_usbd"
+source "samples/net/common/Kconfig"
+
+endif # HU_APP

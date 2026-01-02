@@ -26,7 +26,8 @@
 #define SLI_ASCII85_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #include <stdint.h>

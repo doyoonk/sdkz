@@ -12,7 +12,8 @@
 
 struct device;
 
-struct app_api {
+struct app_api
+{
     void* (*init)(void* arg1, void* arg2, void* arg3);
     void (*deinit)(void* arg1);
     int (*recv)(void*, uint8_t*, size_t);
