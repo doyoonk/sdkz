@@ -23,12 +23,9 @@ LOG_MODULE_DECLARE(app, CONFIG_APP_LOG_LEVEL);
 
 #if CONFIG_LED_PWM
 
-#define MIN_PERIOD PWM_SEC(2U) / 200U
-#define MAX_PERIOD PWM_SEC(2U)
+#define MIN_SCALE	50U
 
-static const struct pwm_dt_spec pwm_leds[] = {
-	PWM_DT_SPEC_GET(DT_ALIAS(pwm_led0)),
-};
+static const struct pwm_dt_spec pwm_led = PWM_DT_SPEC_GET(DT_ALIAS(pwm_led0));
 
 static void start_pwmleds(void*, void*, void*)
 {
@@ -40,39 +37,36 @@ static void start_pwmleds(void*, void*, void*)
 
 	LOG_INF("PWM-based blinky");
 
-	for (size_t i = 0; i < ARRAY_SIZE(pwm_leds); i ++) {
-		if (!pwm_is_ready_dt(&pwm_leds[i])) {
-			LOG_ERR("Error: PWM device %s is not ready", pwm_leds[i].dev->name);
-			return;
-		}
+	if (!pwm_is_ready_dt(&pwm_led)) {
+		LOG_ERR("Error: PWM device %s is not ready", pwm_led.dev->name);
+		return;
 	}
 
 	/*
 	 * In case the default MAX_PERIOD value cannot be set for
 	 * some PWM hardware, decrease its value until it can.
 	 *
-	 * Keep its value at least MIN_PERIOD * 4 to make sure
+	 * Keep its value at least pwm_led.period / MIN_SCALE * 4 to make sure
 	 * the sample changes frequency at least once.
 	 */
-	for (size_t i = 0; i < ARRAY_SIZE(pwm_leds); i ++) {
-		pwm_get_cycles_per_sec(pwm_leds[i].dev, 1, &cycle_per_sec);
+	pwm_get_cycles_per_sec(pwm_led.dev, 1, &cycle_per_sec);
 
-		LOG_INF("%s Cycles per sec %lld, Calibrating for channel %d...", pwm_leds[i].dev->name, cycle_per_sec, pwm_leds[i].channel);
-	}
+	LOG_INF("%s Cycles per sec %lld, Calibrating for channel %d period %d..."
+		, pwm_led.dev->name, cycle_per_sec, pwm_led.channel, pwm_led.period);
 
-	max_period = MAX_PERIOD;
-	while (pwm_set_dt(&pwm_leds[0], max_period, max_period / 2U)) {
+	max_period = pwm_led.period;
+	while (pwm_set_dt(&pwm_led, max_period, max_period / 2U)) {
 		max_period /= 2U;
-		if (max_period < (4U * MIN_PERIOD)) {
-			LOG_ERR("Error: PWM device does not support a period at least %lu", 4U * MIN_PERIOD);
+		if (max_period < (4U * (pwm_led.period / MIN_SCALE))) {
+			LOG_ERR("Error: PWM device does not support a period at least %u", 4U * (pwm_led.period / MIN_SCALE));
 			return;
 		}
 	}
-	LOG_INF("Done calibrating; maximum/minimum periods %u/%lu nsec", max_period, MIN_PERIOD);
+	LOG_INF("Done calibrating; maximum/minimum periods %u/%u nsec", max_period, (pwm_led.period / MIN_SCALE));
 
 	period = max_period;
 	while (1) {
-		ret = pwm_set_dt(&pwm_leds[0], period, period / 2U);
+		ret = pwm_set_dt(&pwm_led, period, period / 2U);
 		if (ret) {
 			LOG_ERR("Error %d: failed to set pulse width", ret);
 			return;
@@ -83,14 +77,14 @@ static void start_pwmleds(void*, void*, void*)
 		if (period > max_period) {
 			period = max_period / 2U;
 			dir = 0U;
-		} else if (period < MIN_PERIOD) {
-			period = MIN_PERIOD * 2U;
+		} else if (period < (pwm_led.period / MIN_SCALE)) {
+			period = (pwm_led.period / MIN_SCALE) * 2U;
 			dir = 1U;
 		}
 
-		k_sleep(K_SECONDS(5U));
+		k_sleep(K_SECONDS(4U));
 	}
 }
-K_THREAD_DEFINE(pwmleds, 512, start_pwmleds, NULL, NULL, NULL, 5, 0, 0);
+K_THREAD_DEFINE(pwmleds, 768, start_pwmleds, NULL, NULL, NULL, 5, 0, 0);
 
 #endif

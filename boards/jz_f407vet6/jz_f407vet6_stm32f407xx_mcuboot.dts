@@ -10,10 +10,6 @@
 	model = "JZ STM32F407VET6 Development board";
 	compatible = "jz,f407vet6-mcuboot";
 
-	chosen {
-		zephyr,code-partition = &boot_partition;
-	};
-
 	aliases {
 		mcuboot-led0 = &red_led_0;
 		mcuboot-button0 = &button0;

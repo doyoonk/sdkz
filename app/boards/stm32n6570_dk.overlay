@@ -4,13 +4,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <st/n6/stm32n6-rtc.dtsi>
+#include "stm32n6570_dk_app_common.dtsi"
 #include <zephyr/dt-bindings/pwm/pwm.h>
 #include <zephyr/dt-bindings/pwm/pwm_ifx_tcpwm.h>
 #include <zephyr/dt-bindings/pwm/ra_pwm.h>
 #include <zephyr/dt-bindings/pwm/stm32_pwm.h>
 
+/delete-node/ &red_led_1;
 / {
+	chosen {
+		zephyr,sram = &axisrama;
+		zephyr,dtcm = &dtcm;
+		zephyr,itcm = &itcm;
+	};
 	example_sensor: example-sensor {
 		compatible = "zephyr,example-sensor";
 		input-gpios = <&gpioa 6 GPIO_ACTIVE_HIGH>;
@@ -18,7 +24,7 @@
 
 	blink_led: blink-led {
 		compatible = "blink-gpio-led";
-		led-gpios = <&gpiog 10 GPIO_ACTIVE_HIGH>;
+		led-gpios = <&gpioo 1 GPIO_ACTIVE_HIGH>;
 		blink-period-ms = <1000>;
 	};
 	pwmleds: pwmleds {
@@ -27,69 +33,66 @@
 
 		pwm_led_0: pwm_led_0 {
 			status = "okay";
-			pwms = <&pwm1 2 PWM_USEC(100) (PWM_POLARITY_NORMAL | STM32_PWM_COMPLEMENTARY)>;
+			pwms = <&pwm1 1 PWM_MSEC(2000) (PWM_POLARITY_NORMAL | STM32_PWM_COMPLEMENTARY)>;
 		};
 	};
 	gpio_keys {
 		compatible = "gpio-keys";
 
-		temp_button: temp {
-			label = "Temp";
+		tamp_button: tamp {
+			label = "Tamp";
 			gpios = <&gpioe 0 GPIO_ACTIVE_HIGH>;
 			zephyr,code = <INPUT_KEY_1>;
+		};
+		boot1_button: boot1 {
+			label = "Boot1";
+			gpios = <&gpioa 6 GPIO_ACTIVE_HIGH>;
+			zephyr,code = <INPUT_KEY_2>;
 		};
 	};
 	aliases {
 		bbram = &bbram;
-		led0 = &red_led_1;
-		sw0 = &user_button;
+
 		pwm-led0 = &pwm_led_0;
-		hup-uart = &usart2;
+		hup-uart = &cdc_acm_uart0;
+	};
+	itcm: memory@0 {
+		compatible = "zephyr,memory-region", "arm,itcm";
+		reg = <0x00000000 DT_SIZE_K(64)>;
+		zephyr,memory-region = "ITCM";
+	};
+
+	dtcm: memory@20000000 {
+		compatible = "zephyr,memory-region", "arm,dtcm";
+		reg = <0x20000000 DT_SIZE_K(128)>;
+		zephyr,memory-region = "DTCM";
 	};
 };
 
-&clk_lse {
+&axisram3 {
 	status = "okay";
 };
 
-&pll2 {
-	clocks = <&clk_hsi>;
-	div-m = <2>;
-	mul-n = <50>;
-	div-p1 = <1>;
-	div-p2 = <1>;
+&axisram4 {
 	status = "okay";
 };
 
-&rtc {
-	clocks = <&rcc STM32_CLOCK_BUS_APB4 0x00010000>,
-		<&rcc STM32_SRC_LSE RTC_SEL(1)>;
-
+&axisram5 {
 	status = "okay";
-
-	backup_regs {
-		status = "okay";
-	};
 };
 
-&bbram {
+&axisram6 {
 	status = "okay";
 };
 
 &timers1 {
 	status = "okay";
+	st,countermode = <0x10>; /* downcounter */
 
 	/delete-node/ pwm1;
 	pwm1: pwm {
 		status = "okay";
 		pinctrl-0 = <&tim1_ch1_pe9 &tim1_ch1n_pg10>;
 		pinctrl-names = "default";
-	};
-};
-
-&zephyr_udc0 {
-	cdc_acm_uart0: cdc_acm_uart0 {
-		compatible = "zephyr,cdc-acm-uart";
-		label = "Zephyr USB CDC-ACM";
 	};
 };

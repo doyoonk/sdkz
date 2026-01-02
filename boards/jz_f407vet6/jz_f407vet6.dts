@@ -10,6 +10,7 @@
 #include <st/f4/stm32f407v(e-g)tx-pinctrl.dtsi>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <zephyr/dt-bindings/pwm/pwm.h>
+#include <zephyr/dt-bindings/timer/stm32-timer.h>
 
 / {
 	model = "JZ STM32F407VET6 Development board";
@@ -28,10 +29,6 @@
 
 	leds {
 		compatible = "gpio-leds";
-		red_led_0: led_0 {
-			gpios = <&gpioe 13 GPIO_ACTIVE_LOW>;
-			label = "User LED1";
-		};
 		red_led_1: led_1 {
 			gpios = <&gpioe 14 GPIO_ACTIVE_LOW>;
 			label = "User LED2";
@@ -67,7 +64,7 @@
 
 		pwm_led_0: pwm_led_0 {
 			status = "okay";
-			pwms = <&pwm1 1 PWM_USEC(100) PWM_POLARITY_NORMAL>;
+			pwms = <&pwm1 3 PWM_MSEC(2000) PWM_POLARITY_NORMAL>;
 			label = "PWM LED 0";
 		};
 	};
@@ -75,9 +72,8 @@
 	aliases {
 		rtc = &rtc;
 		bbram = &bbram;
-		led0 = &red_led_0;
-		led1 = &red_led_1;
-		led2 = &red_led_2;
+		led0 = &red_led_1;
+		led1 = &red_led_2;
 		sw0 = &button0;
 		btn0 = &button0;
 		btn1 = &button1;
@@ -147,10 +143,11 @@
 &timers1 {
 	status = "okay";
 	st,prescaler = <16799>;	/* 10kHz *//* 33599 - 5kHz: 168MHz */
-
+	st,countermode = <0x10>; /* downcounter */
+	
 	pwm1: pwm {
 		status = "okay";
-		pinctrl-0 = <&tim1_ch3_pe13_n>;
+		pinctrl-0 = <&tim1_ch3_pe13>;
 		pinctrl-names = "default";
 	};
 };
@@ -338,13 +335,4 @@ zephyr_udc0: &usbotg_hs {
 
 &rng {
 	status = "okay";
-};
-
-&pinctrl {
-	tim1_ch3_pe13_n: tim1_ch3_pe13_n {
-		bias-disable;
-		drive-push-pull;
-		slew-rate = "very-high-speed";
-		pinmux = <STM32_PINMUX('E', 13, AF1)>;
-	};
 };

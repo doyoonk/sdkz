@@ -12,8 +12,58 @@
 #include <freq.h>
 
 / {
-	axisram: memory@24000000 {
-		compatible = "mmio-sram";
+	soc {
+		ramcfg_sram1_ahb: ramcfg@42023300 {
+			compatible = "st,stm32n6-ramcfg";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x42023300 0x80>;
+			clocks = <&rcc STM32_CLOCK(MEM, 4)>, <&rcc STM32_CLOCK(AHB2, 12)>;
+			clock-names = "axisram", "ramcfg";
+
+			ahbsram1: memory@38000000 {
+				compatible = "zephyr,memory-region", "mmio-sram";
+				zephyr,memory-region = "AHBSRAM1";
+				zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+				reg = <0x38000000 DT_SIZE_K(16)>;
+				//status = "disabled";
+			};
+		};
+		ramcfg_sram2_ahb: ramcfg@42023380 {
+			compatible = "st,stm32n6-ramcfg";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x42023380 0x80>;
+			clocks = <&rcc STM32_CLOCK(MEM, 5)>, <&rcc STM32_CLOCK(AHB2, 12)>;
+			clock-names = "axisram", "ramcfg";
+
+			ahbsram2: memory@38004000 {
+				compatible = "zephyr,memory-region", "mmio-sram";
+				zephyr,memory-region = "AHBSRAM2";
+				zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+				reg = <0x38004000 DT_SIZE_K(16)>;
+				//status = "disabled";
+			};
+		};
+		ramcfg_bkpsram: ramcfg@42023480 {
+			compatible = "st,stm32n6-ramcfg";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x42023480 0x80>;
+			clocks = <&rcc STM32_CLOCK(MEM, 6)>, <&rcc STM32_CLOCK(AHB2, 12)>;
+			clock-names = "axisram", "ramcfg";
+
+			backup_sram: memory@3c000000 {
+				compatible = "zephyr,memory-region", "mmio-sram";
+				zephyr,memory-region = "BKPSRAM";
+				zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+				reg = <0x3c000000 DT_SIZE_K(8)>;
+				//status = "disabled";
+			};
+		};
+	};
+
+	axisrama: memory@24000000 {
 		reg = <0x24000000 (DT_SIZE_M(2)
 			+ DT_SIZE_K(448)
 			+ DT_SIZE_K(448)
@@ -21,6 +71,10 @@
 			+ DT_SIZE_K(448)
 		)>;
 	};
+	axisramb: memory@24180400 {
+		reg = <0x24180400 DT_SIZE_K(511)>;
+	};
+
 	ahbsram: memory@38000000 {
 		reg = <0x38000000 (DT_SIZE_K(16) + DT_SIZE_K(16))>;
 	};

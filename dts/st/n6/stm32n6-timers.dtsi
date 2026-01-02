@@ -10,6 +10,7 @@
 #include <zephyr/dt-bindings/clock/stm32n6_clock.h>
 #include <zephyr/dt-bindings/reset/stm32n6_reset.h>
 #include <zephyr/dt-bindings/sensor/qdec_stm32.h>
+#include <zephyr/dt-bindings/timer/stm32_timer.h>
 #include <freq.h>
 
 / {
