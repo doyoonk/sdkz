@@ -13,6 +13,8 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(app, CONFIG_APP_LOG_LEVEL);
 
+#include "main.h"
+
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/pwm.h>
@@ -85,6 +87,9 @@ static void start_pwmleds(void*, void*, void*)
 		k_sleep(K_SECONDS(4U));
 	}
 }
-K_THREAD_DEFINE(pwmleds, 768, start_pwmleds, NULL, NULL, NULL, 5, 0, 0);
 
+struct z_thread_stack_element app_stack_sect
+	__aligned(Z_KERNEL_STACK_OBJ_ALIGN)
+	_k_thread_stack_pwmleds[K_KERNEL_STACK_LEN(768)];
+Z_THREAD_COMMON_DEFINE(pwmleds, 768, start_pwmleds, NULL, NULL, NULL, 7, 0, 0);
 #endif

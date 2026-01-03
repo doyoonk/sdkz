@@ -28,9 +28,13 @@
 		ratio = <4>;
 		io-channels = <&adc1 17>;
 	};
+	aliases {
+		rtc = &rtc;
+	};
 };
 
 &clk_lse {
+	driving-capability = <1>;
 	status = "okay";
 };
 
@@ -39,10 +43,6 @@
 		<&rcc STM32_SRC_LSE RTC_SEL(1)>;
 
 	status = "okay";
-
-	backup_regs {
-		status = "okay";
-	};
 };
 
 &bbram {

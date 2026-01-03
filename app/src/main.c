@@ -17,6 +17,8 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 #include <zephyr/version.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/drivers/bbram.h>
+#include <zephyr/drivers/rtc.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/logging/log_ctrl.h>
 
 #include <zephyr/net/net_if.h>
@@ -24,10 +26,11 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 #include <zephyr/net/net_mgmt.h>
 #include <zephyr/net/net_event.h>
 #include <zephyr/net/conn_mgr_monitor.h>
-#include <zephyr/drivers/gpio.h>
+
 #include <zephyr/shell/shell.h>
 
 #include <zephyr/sys/reboot.h>
+#include <zephyr/sys/util.h>
 
 #include <app/usb.h>
 #include <app/app_api.h>
@@ -37,6 +40,8 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 
 #include <net_sample_common.h>
 #include <soc.h>
+
+#include <time.h>
 
 #define MY_PORT     				4241
 #define HUP_UDP_THREAD_STACK_SIZE	(1024 - 128)
@@ -50,21 +55,31 @@ struct app_data app =
 	.hup_udp = NULL,
 };
 
-#if 0 //DT_NODE_EXISTS(DT_CHOSEN(zephyr_dtcm))
-#define app_stack_sect __dtcm_bss_section
-#else
-#define app_stack_sect __kstackmem
-#endif
-
-struct z_thread_stack_element app_stack_sect \
-	__aligned(Z_KERNEL_STACK_OBJ_ALIGN) \
+struct z_thread_stack_element app_stack_sect
+	__aligned(Z_KERNEL_STACK_OBJ_ALIGN)
 	hup_udp_stack_area[K_KERNEL_STACK_LEN(HUP_UDP_THREAD_STACK_SIZE)];
-struct z_thread_stack_element app_stack_sect \
-	__aligned(Z_KERNEL_STACK_OBJ_ALIGN) \
+struct z_thread_stack_element app_stack_sect
+	__aligned(Z_KERNEL_STACK_OBJ_ALIGN)
 	hup_uart_stack_area[K_KERNEL_STACK_LEN(HUP_UART_THREAD_STACK_SIZE)];
+
+#if CONFIG_SOC_FAMILY_STM32
+#define MAGIC_VALUE 0xA500FF5A
+#if CONFIG_SOC_SERIES_STM32N6X && DT_NODE_HAS_STATUS(DT_NODELABEL(backup_sram), okay)
+/** Value stored in backup SRAM. */
+struct backup_store __attribute__((section(STRINGIFY(BKPSRAM)))) backup;
+#elif DT_HAS_COMPAT_STATUS_OKAY(st_stm32_backup_sram)
+#define BACKUP_DEV_COMPAT st_stm32_backup_sram
+/** Value stored in backup SRAM. */
+struct backup_store __stm32_backup_sram_section backup;
+#else
+#undef MAGIC_VALUE
+#endif
+#endif
 
 #if CONFIG_NET_CONNECTION_MANAGER
 #define EVENT_MASK (NET_EVENT_L4_CONNECTED | NET_EVENT_L4_DISCONNECTED)
+
+const struct device *const rtc = DEVICE_DT_GET(DT_ALIAS(rtc));
 
 static void event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt_event, struct net_if *iface)
 {
@@ -121,27 +136,80 @@ static void deinit_app()
 #endif
 }
 
+#if !defined(CONFIG_BOARD_HAS_VBAT_BATTERY)
+static int set_date_time(const struct device *rtc)
+{
+	struct tm time;
+	int ret = 0;
+	struct rtc_time tm = {
+		.tm_year = 2026 - 1900,
+		.tm_mon = 0,
+		.tm_mday = 1,
+		.tm_hour = 0,
+		.tm_min = 0,
+		.tm_sec = 0,
+	};
+
+    memset(&time, 0, sizeof(time));
+    time.tm_mday = tm.tm_mday;
+    time.tm_year = tm.tm_year;
+    mktime(&time);
+
+	tm.tm_wday = time.tm_wday;
+	tm.tm_isdst = time.tm_isdst;
+	ret = rtc_set_time(rtc, &tm);
+	if (ret < 0) {
+		LOG_ERR("Cannot write date time: %d", ret);
+		return ret;
+	}
+	return ret;
+}
+#endif
+
+static int get_date_time(const struct device *rtc)
+{
+	int ret = 0;
+	struct rtc_time tm;
+
+	ret = rtc_get_time(rtc, &tm);
+	if (ret < 0) {
+		LOG_ERR("Cannot read date time: %d", ret);
+		return ret;
+	}
+
+	LOG_INF("RTC date and time: %04d-%02d-%02d %02d:%02d:%02d", tm.tm_year + 1900,
+	       tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+	return ret;
+}
+
 int main(void)
 {
 	LOG_INF("Zephyr Example Application %s/0x%08x, %s, %s", APP_VERSION_STRING, APPVERSION, __DATE__ " " __TIME__, KERNEL_VERSION_EXTENDED_STRING);
 
 #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_itcm))
-	LOG_INF("itcm size %d(0x%08x)", DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)), DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)));
-	LOG_INF("  start %p end %p size %d(0x%08x)", &__itcm_start, &__itcm_end, (size_t)__itcm_size, (size_t)__itcm_size);
+	LOG_INF("itcm size %d(0x%08x)"
+		, DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)), DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)));
+	LOG_INF("  start %p end %p size %d(0x%08x)"
+		, &__itcm_start, &__itcm_end, (size_t)&__itcm_size, (size_t)&__itcm_size);
 	LOG_INF("  data load start %p", &__itcm_load_start);
 #endif
 #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_dtcm))
-	LOG_INF("dtcm size %d(0x%08x)", DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)), DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)));
+	LOG_INF("dtcm size %d(0x%08x)"
+		, DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)), DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)));
 	LOG_INF("  start %p end %p", &__dtcm_start, &__dtcm_end);
 	LOG_INF("  bss start %p end %p", &__dtcm_bss_start, &__dtcm_bss_end);
 	LOG_INF("  noinit start %p end %p", &__dtcm_noinit_start, &__dtcm_noinit_end);
 	LOG_INF("  data start %p end %p", &__dtcm_data_start, &__dtcm_data_end);
 	LOG_INF("  data load start %p", &__dtcm_data_load_start);
-
+#if CONFIG_HU_PALLOC
 	LOG_INF("palloc start %p end 0x%08x, "
 		, &__dtcm_end
-		, (size_t)&__dtcm_end + (DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)) - ((size_t)&__dtcm_end - (size_t)&__dtcm_start)) );
-	palloc_init(__dtcm_start, __dtcm_start + DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)));
+		, (size_t)&__dtcm_end + (DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm))
+		- ((size_t)&__dtcm_end - (size_t)&__dtcm_start)));
+#endif
+	palloc_init(&__dtcm_end, (void*)((size_t)&__dtcm_end + DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm))
+		- ((size_t)&__dtcm_end - (size_t)&__dtcm_start)));
 #endif
 
 	init_app();
@@ -156,7 +224,28 @@ int main(void)
 		, hup_uart_stack_area, K_THREAD_STACK_SIZEOF(hup_uart_stack_area)
 		, (void*)DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart), (void*)115200, "n81");
 
+#if !defined(CONFIG_BOARD_HAS_VBAT_BATTERY)
+	set_date_time(rtc);
+#endif
+	get_date_time(rtc);
 
+#ifdef BACKUP_DEV_COMPAT
+	const struct device *const dev = DEVICE_DT_GET_ONE(BACKUP_DEV_COMPAT);
+
+	if (!device_is_ready(dev)) {
+		LOG_ERR("ERROR: BackUp SRAM device is not ready");
+	} else
+#endif
+#ifdef MAGIC_VALUE
+	{
+		if (backup.magic == MAGIC_VALUE) {
+			LOG_INF("Backup SRAM read: magic=0x%08x", backup.magic);
+		} else {
+			LOG_INF("Backup SRAM uninitialized, initializing...");
+			backup.magic = MAGIC_VALUE;
+		}
+	}
+#endif
 	while (1) {
 		k_sleep(K_MSEC(1000));
 	}

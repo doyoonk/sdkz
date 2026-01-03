@@ -14,6 +14,12 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#if DT_NODE_EXISTS(DT_CHOSEN(zephyr_dtcm))
+#define app_stack_sect __dtcm_bss_section
+#else
+#define app_stack_sect __kstackmem
+#endif
+
 struct app_data {
     bool connected;
 
@@ -23,6 +29,10 @@ struct app_data {
 #if CONFIG_NET_CONNECTION_MANAGER
     struct net_mgmt_event_callback mgmt_cb;
 #endif
+};
+
+struct backup_store {
+	uint32_t magic;
 };
 
 extern struct app_data app;

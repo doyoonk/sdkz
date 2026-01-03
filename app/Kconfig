@@ -16,3 +16,12 @@ endmenu
 module = APP
 module-str = APP
 source "subsys/logging/Kconfig.template.log_config"
+
+config BOARD_HAS_VBAT_BATTERY
+    bool
+    default n
+    prompt "Board has VBAT battery support"
+    help
+      Enable VBAT battery support if the board has a battery connected to
+      the VBAT pin of the MCU. This allows the RTC and backup registers to
+      retain their content when the main power supply is turned off.

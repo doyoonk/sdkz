@@ -19,3 +19,9 @@ config HU_PACKET
 config HU_PACKET_SIZE
 	int "HU packet buffer size"
 	default 1536
+
+config HU_PALLOC
+	bool "Support HU palloc"
+	default n
+	help
+	  This option enables the 'HU' palloc memory allocator

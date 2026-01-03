@@ -56,15 +56,15 @@
 		pwm-led0 = &pwm_led_0;
 		hup-uart = &cdc_acm_uart0;
 	};
-	itcm: memory@0 {
+	itcm: memory@10000000 {
 		compatible = "zephyr,memory-region", "arm,itcm";
-		reg = <0x00000000 DT_SIZE_K(64)>;
+		reg = <0x10000000 DT_SIZE_K(64)>;
 		zephyr,memory-region = "ITCM";
 	};
 
-	dtcm: memory@20000000 {
+	dtcm: memory@30000000 {
 		compatible = "zephyr,memory-region", "arm,dtcm";
-		reg = <0x20000000 DT_SIZE_K(128)>;
+		reg = <0x30000000 DT_SIZE_K(128)>;
 		zephyr,memory-region = "DTCM";
 	};
 };
@@ -82,6 +82,10 @@
 };
 
 &axisram6 {
+	status = "okay";
+};
+
+&backup_sram {
 	status = "okay";
 };
 
