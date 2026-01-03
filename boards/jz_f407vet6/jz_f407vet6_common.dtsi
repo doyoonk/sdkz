@@ -1,0 +1,305 @@
+/*
+ * Copyright (c) 2025 HU Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <st/f4/stm32f407Xe.dtsi>
+#include <st/f4/stm32f407v(e-g)tx-pinctrl.dtsi>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+#include <zephyr/dt-bindings/timer/stm32-timer.h>
+
+/ {
+	chosen {
+		zephyr,console = &usart1;
+		zephyr,shell-uart = &usart1;
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,flash-controller = &flash0;
+		zephyr,dtcm = &ccm0;
+		zephyr,canbus = &can1;
+		zephyr,code-partition = &slot0_partition;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		red_led_1: led_1 {
+			gpios = <&gpioe 14 GPIO_ACTIVE_LOW>;
+			label = "User LED2";
+		};
+		red_led_2: led_2 {
+			gpios = <&gpioe 15 GPIO_ACTIVE_LOW>;
+			label = "User LED3";
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		button0: button_0 {
+			label = "Push Button - Button SW1";
+			gpios = <&gpioe 10 GPIO_ACTIVE_LOW>;
+			zephyr,code = <INPUT_BTN_0>;
+		};
+		button1: button_1 {
+			label = "Push Button - Button SW2";
+			gpios = <&gpioe 11 GPIO_ACTIVE_LOW>;
+			zephyr,code = <INPUT_BTN_1>;
+		};
+		button2: button_2 {
+			label = "Push Button - Button SW3";
+			gpios = <&gpioe 12 GPIO_ACTIVE_LOW>;
+			zephyr,code = <INPUT_BTN_2>;
+		};
+	};
+};
+
+&clk_lse {
+	status = "okay";
+};
+
+&clk_hse {
+	clock-frequency = <DT_FREQ_M(25)>;
+	status = "okay";
+};
+
+&pll {
+	div-m = <25>;
+	mul-n = <336>;
+	div-p = <2>;
+	div-q = <7>;
+	clocks = <&clk_hse>;
+	status = "okay";
+};
+
+&rcc {
+	clocks = <&pll>;
+	clock-frequency = <DT_FREQ_M(168)>;
+	ahb-prescaler = <1>;
+	apb1-prescaler = <4>;
+	apb2-prescaler = <2>;
+	status = "okay";
+};
+
+&plli2s {
+	mul-n = <192>;
+	div-r = <2>;
+	status = "okay";
+};
+
+&rtc {
+	clocks = <&rcc STM32_CLOCK(APB1, 28)>,
+		<&rcc STM32_SRC_LSE RTC_SEL(1)>;
+	status = "okay";
+};
+
+&bbram {
+	status = "okay";
+};
+
+&ccm0 {
+	status = "okay";
+};
+
+&backup_sram {
+	status = "okay";
+};
+
+&timers1 {
+	status = "okay";
+	st,prescaler = <16799>;	/* 10kHz *//* 33599 - 5kHz: 168MHz */
+	st,countermode = <0x10>; /* downcounter */
+	
+	pwm1: pwm {
+		status = "okay";
+		pinctrl-0 = <&tim1_ch3_pe13>;
+		pinctrl-names = "default";
+	};
+};
+
+&can1 {
+	pinctrl-0 = <&can1_rx_pd0 &can1_tx_pd1>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&can2 {
+	pinctrl-0 = <&can2_rx_pb5 &can2_tx_pb6>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+usb_otg1: &usbotg_fs {
+	pinctrl-0 = <&usb_otg_fs_dm_pa11 &usb_otg_fs_dp_pa12>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+zephyr_udc0: &usbotg_hs {
+	pinctrl-0 = <&usb_otg_hs_dm_pb14 &usb_otg_hs_dp_pb15>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&i2c1 {
+	clock-frequency = <I2C_BITRATE_FAST>;
+	pinctrl-0 = <&i2c1_scl_pb8 &i2c1_sda_pb9>;
+	pinctrl-names = "default";
+	status = "okay";
+	// https://github.com/art103/JZ-F407VET6
+	at24c02: eeprom@50 {
+		compatible = "atmel,at24c02", "atmel,at24";
+		reg = <0x50>;
+		status = "okay";
+		size = <256>;
+		pagesize = <8>;
+		address-width = <8>;
+		timeout = <5>;
+	};
+};
+
+&adc1 {
+	st,adc-prescaler = <4>;
+	status = "okay";
+};
+
+
+&flash0 {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		status = "okay";
+
+		boot_partition: partition@0 {
+			label = "mcuboot";
+			reg = <0x00000000 DT_SIZE_K(64)>;
+		};
+
+		slot0_partition: partition@10000 {
+			label = "image-0";
+			reg = <0x00010000 DT_SIZE_K(448)>;
+		};
+	};
+};
+
+&spi2 {
+	pinctrl-0 = <&spi2_sck_pb10 &spi2_miso_pc2 &spi2_mosi_pc3>;
+	pinctrl-names = "default";
+	cs-gpios = <&gpioe 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+	status = "okay";
+	// https://github.com/art103/JZ-F407VET6
+	w25q64: w25Q64jv@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <21000000>;
+		label = "W25Q64";
+		jedec-id = [ef 40 17];
+		size = <DT_SIZE_M(64)>;
+		status = "okay";
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "okay";
+
+			slot1_partition: partition@0 {
+				label = "image-1";
+				reg = <0x00000000 DT_SIZE_K(448)>;
+			};
+			scratch_partition: partition@80000 {
+				label = "image-scratch";
+				reg = <0x00100000 DT_SIZE_K(448)>;
+			};
+			storage_partition: partition@100000 {
+				label = "storage";
+				reg = <0x00200000 DT_SIZE_M(1)>;
+			};
+		};
+	};
+};
+
+&usart1 {
+	pinctrl-0 = <&usart1_tx_pa9 &usart1_rx_pa10>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
+	status = "okay";
+};
+
+&usart2 {
+	pinctrl-0 = <&usart2_tx_pd5 &usart2_rx_pd6>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
+	status = "okay";
+};
+
+&sdmmc1 {
+	pinctrl-0 = <
+		&sdio_d0_pc8
+		&sdio_d1_pc9
+		&sdio_d2_pc10
+		&sdio_d3_pc11
+		&sdio_ck_pc12
+		&sdio_cmd_pd2
+	>;
+	pinctrl-names = "default";
+	cd-gpios = <&gpiod 3 GPIO_ACTIVE_LOW>;
+	disk-name = "SD";
+	status = "okay";
+};
+
+&dma1 {
+	status = "okay";
+};
+
+&dma2 {
+	status = "okay";
+};
+
+&mac {
+	pinctrl-0 = <
+		&eth_rxd0_pc4
+		&eth_rxd1_pc5
+		&eth_ref_clk_pa1
+		&eth_crs_dv_pa7
+		&eth_tx_en_pb11
+		&eth_txd0_pb12
+		&eth_txd1_pb13
+	>;
+	pinctrl-names = "default";
+	phy-connection-type = "rmii";
+	phy-handle = <&phy>;
+	status = "okay";
+};
+
+&mdio {
+	status = "okay";
+
+	pinctrl-0 = <&eth_mdio_pa2 &eth_mdc_pc1>;
+	pinctrl-names = "default";
+
+	phy: ethernet-phy@1 {
+		status = "okay";
+		compatible = "ethernet-phy";
+		reg = <0x01>;
+	};
+};
+
+&die_temp {
+	status = "okay";
+};
+
+&vref {
+	status = "okay";
+};
+
+&vbat {
+	status = "okay";
+};
+
+&rng {
+	status = "okay";
+};

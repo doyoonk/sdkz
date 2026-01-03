@@ -16,7 +16,6 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 #include <zephyr/device.h>
 #include <zephyr/version.h>
 #include <zephyr/drivers/sensor.h>
-#include <zephyr/drivers/bbram.h>
 #include <zephyr/drivers/rtc.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/logging/log_ctrl.h>

@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
- #include "jz_f407vet6.dts"
+ #include "jz_f407vet6_common.dtsi"
 
 / {
 	model = "JZ STM32F407VET6 Development board";
 	compatible = "jz,f407vet6-mcuboot";
 
 	aliases {
-		mcuboot-led0 = &red_led_0;
+		mcuboot-led0 = &red_led_1;
 		mcuboot-button0 = &button0;
 	};
 };
