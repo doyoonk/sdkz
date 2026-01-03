@@ -1,0 +1,108 @@
+diff --git a/drivers/flash/spi_nor.c b/drivers/flash/spi_nor.c
+index c5ade5e07dd..b725e52f6c8 100644
+--- a/drivers/flash/spi_nor.c
++++ b/drivers/flash/spi_nor.c
+@@ -1589,6 +1589,7 @@ static int spi_nor_configure(const struct device *dev)
+ 	 * device that has different parameters.
+ 	 */
+ 
++	LOG_DBG("Device id %02x %02x %02x", jedec_id[0], jedec_id[1], jedec_id[2]);
+ 	if (memcmp(jedec_id, cfg->jedec_id, sizeof(jedec_id)) != 0) {
+ 		LOG_ERR("Device id %02x %02x %02x does not match config %02x %02x %02x",
+ 			jedec_id[0], jedec_id[1], jedec_id[2],
+@@ -1596,7 +1597,6 @@ static int spi_nor_configure(const struct device *dev)
+ 		return -EINVAL;
+ 	}
+ #endif
+-
+ 	/* Check for block protect bits that need to be cleared.  This
+ 	 * information cannot be determined from SFDP content, so the
+ 	 * devicetree node property must be set correctly for any device
+diff --git a/soc/st/stm32/common/stm32_backup_domain.c b/soc/st/stm32/common/stm32_backup_domain.c
+index c77b8493b98..7468b4dd0e0 100644
+--- a/soc/st/stm32/common/stm32_backup_domain.c
++++ b/soc/st/stm32/common/stm32_backup_domain.c
+@@ -25,6 +25,7 @@ LOG_MODULE_REGISTER(stm32_backup_domain, CONFIG_SOC_LOG_LEVEL);
+ static struct k_spinlock lock;
+ static size_t refcount;
+ 
++// https://github.com/zephyrproject-rtos/zephyr/issues/100667
+ void stm32_backup_domain_enable_access(void)
+ {
+ 	k_spinlock_key_t key = k_spin_lock(&lock);
+@@ -33,14 +34,19 @@ void stm32_backup_domain_enable_access(void)
+ 		ENABLE_BKUP_ACCESS();
+ 		while (!IS_ENABLED_BKUP_ACCESS()) {
+ 		}
++#ifdef CONFIG_SOC_SERIES_STM32N6X
++		refcount = 1;
++#endif
+ 	}
++#ifndef CONFIG_SOC_SERIES_STM32N6X
+ 	refcount++;
+-
++#endif
+ 	k_spin_unlock(&lock, key);
+ }
+ 
+ void stm32_backup_domain_disable_access(void)
+ {
++#ifndef CONFIG_SOC_SERIES_STM32N6X
+ 	k_spinlock_key_t key = k_spin_lock(&lock);
+ 
+ 	if (refcount == 0U) {
+@@ -53,4 +59,5 @@ void stm32_backup_domain_disable_access(void)
+ 	}
+ 
+ 	k_spin_unlock(&lock, key);
++#endif
+ }
+diff --git a/soc/st/stm32/stm32n6x/soc.c b/soc/st/stm32/stm32n6x/soc.c
+index 49f5417f1d2..eeead766bf4 100644
+--- a/soc/st/stm32/stm32n6x/soc.c
++++ b/soc/st/stm32/stm32n6x/soc.c
+@@ -27,10 +27,44 @@ extern char _vector_start[];
+ void *g_pfnVectors = (void *)_vector_start;
+ 
+ #if defined(CONFIG_SOC_RESET_HOOK)
++#if DT_NODE_HAS_STATUS_OKAY(DT_CHOSEN(zephyr_itcm)) &&                                             \
++	!DT_SAME_NODE(DT_CHOSEN(zephyr_itcm), DT_CHOSEN(zephyr_flash))
++#define ITCM_BASE DT_REG_ADDR(DT_CHOSEN(zephyr_itcm))
++#define ITCM_END  (DT_REG_ADDR(DT_CHOSEN(zephyr_itcm)) + DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)))
++
++BUILD_ASSERT((ITCM_BASE & __alignof__(uint64_t)) == 0, "ITCM start address must be 64-bit aligned");
++BUILD_ASSERT((ITCM_END & __alignof__(uint64_t)) == 0, "ITCM size must be 64-bit aligned");
++#endif
++#if DT_NODE_HAS_STATUS_OKAY(DT_CHOSEN(zephyr_dtcm)) &&                                             \
++	!DT_SAME_NODE(DT_CHOSEN(zephyr_dtcm), DT_CHOSEN(zephyr_sram))
++#define DTCM_BASE DT_REG_ADDR(DT_CHOSEN(zephyr_dtcm))
++#define DTCM_END  (DT_REG_ADDR(DT_CHOSEN(zephyr_dtcm)) + DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)))
++
++BUILD_ASSERT((DTCM_BASE & __alignof__(uint32_t)) == 0, "DTCM start address must be 32-bit aligned");
++BUILD_ASSERT((DTCM_END & __alignof__(uint32_t)) == 0, "DTCM size must be 32-bit aligned");
++#endif
++
+ void soc_reset_hook(void)
+ {
+ 	/* This is provided by STM32Cube HAL */
+ 	SystemInit();
++
++#ifdef ITCM_BASE
++	volatile uint64_t *itcm_start = (void *)ITCM_BASE;
++	volatile uint64_t *itcm_end = (void *)ITCM_END;
++
++	for (volatile uint64_t *p = itcm_start; p < itcm_end; p++) {
++		*p = 0;
++	}
++#endif
++#ifdef DTCM_BASE
++	volatile uint32_t *dtcm_start = (void *)DTCM_BASE;
++	volatile uint32_t *dtcm_end = (void *)DTCM_END;
++
++	for (volatile uint32_t *p = dtcm_start; p < dtcm_end; p++) {
++		*p = 0;
++	}
++#endif
+ }
+ #endif
+ 
