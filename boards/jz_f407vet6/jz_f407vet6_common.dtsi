@@ -22,6 +22,8 @@
 		zephyr,dtcm = &ccm0;
 		zephyr,canbus = &can1;
 		zephyr,code-partition = &slot0_partition;
+		zephyr,settings-partition = &settings_partition;
+		zephyr,bootloader-info = &boot_info0;
 	};
 
 	leds {
@@ -52,6 +54,35 @@
 			label = "Push Button - Button SW3";
 			gpios = <&gpioe 12 GPIO_ACTIVE_LOW>;
 			zephyr,code = <INPUT_BTN_2>;
+		};
+	};
+
+	backup_sram_retained@40024c00 {
+		compatible = "zephyr,memory-region", "mmio-sram";
+		reg = <0x40024c00 DT_SIZE_K(1)>;
+		zephyr,memory-region = "RetainedMem";
+		status = "okay";
+
+		retainedmem {
+			compatible = "zephyr,retained-ram";
+			status = "okay";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			boot_info0: boot_info0@0 {
+				compatible = "zephyr,retention";
+				status = "okay";
+				reg = <0x0 0x100>;
+				prefix = [08 04];
+				checksum = <1>;
+			};
+
+			boot_info1: boot_info1@100 {
+				compatible = "zephyr,retention";
+				status = "okay";
+				reg = <0x100 0x300>;
+				prefix = [00 11 55 88 fa bc];
+			};
 		};
 	};
 };
@@ -104,6 +135,7 @@
 };
 
 &backup_sram {
+	reg = <0x40024000 DT_SIZE_K(3)>;
 	status = "okay";
 };
 
@@ -212,10 +244,14 @@ zephyr_udc0: &usbotg_hs {
 			};
 			scratch_partition: partition@80000 {
 				label = "image-scratch";
-				reg = <0x00100000 DT_SIZE_K(448)>;
+				reg = <0x00080000 DT_SIZE_K(448)>;
 			};
 			storage_partition: partition@100000 {
 				label = "storage";
+				reg = <0x00100000 DT_SIZE_M(1)>;
+			};
+			settings_partition: partition@200000 {
+				label = "settings";
 				reg = <0x00200000 DT_SIZE_M(1)>;
 			};
 		};

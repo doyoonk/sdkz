@@ -54,10 +54,10 @@ struct app_data app =
 	.hup_udp = NULL,
 };
 
-struct z_thread_stack_element app_stack_sect
+static struct z_thread_stack_element app_stack_sect
 	__aligned(Z_KERNEL_STACK_OBJ_ALIGN)
 	hup_udp_stack_area[K_KERNEL_STACK_LEN(HUP_UDP_THREAD_STACK_SIZE)];
-struct z_thread_stack_element app_stack_sect
+static struct z_thread_stack_element app_stack_sect
 	__aligned(Z_KERNEL_STACK_OBJ_ALIGN)
 	hup_uart_stack_area[K_KERNEL_STACK_LEN(HUP_UART_THREAD_STACK_SIZE)];
 
@@ -69,7 +69,7 @@ struct backup_store __attribute__((section(STRINGIFY(BKPSRAM)))) backup;
 #elif DT_HAS_COMPAT_STATUS_OKAY(st_stm32_backup_sram)
 #define BACKUP_DEV_COMPAT st_stm32_backup_sram
 /** Value stored in backup SRAM. */
-struct backup_store __stm32_backup_sram_section backup;
+static struct backup_store __stm32_backup_sram_section backup;
 #else
 #undef MAGIC_VALUE
 #endif
@@ -78,7 +78,7 @@ struct backup_store __stm32_backup_sram_section backup;
 #if CONFIG_NET_CONNECTION_MANAGER
 #define EVENT_MASK (NET_EVENT_L4_CONNECTED | NET_EVENT_L4_DISCONNECTED)
 
-const struct device *const rtc = DEVICE_DT_GET(DT_ALIAS(rtc));
+static const struct device *const rtc = DEVICE_DT_GET(DT_ALIAS(rtc));
 
 static void event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt_event, struct net_if *iface)
 {
