@@ -16,7 +16,6 @@ LOG_MODULE_REGISTER(app_settings, CONFIG_LOG_DEFAULT_LEVEL);
 
 #include <zephyr/fs/zms.h>
 
-#include <zephyr/settings/settings.h>
 #include <zephyr/retention/blinfo.h>
 #include <bootutil/boot_status.h>
 #include <bootutil/image.h>
@@ -26,7 +25,7 @@ LOG_MODULE_REGISTER(app_settings, CONFIG_LOG_DEFAULT_LEVEL);
 #include <stdlib.h>
 #include <errno.h>
 
-int settings_get_bootloader_active_slot(uint8_t* slot)
+int bootloader_get_active_slot(uint8_t* slot)
 {
 	int rc;
 
@@ -39,7 +38,7 @@ int settings_get_bootloader_active_slot(uint8_t* slot)
 	return 0;
 }
 
-int settings_get_bootloader_max_application_size(int *max_size)
+int bootloader_get_max_appsize(int *max_size)
 {
 	int rc;
 
@@ -57,7 +56,7 @@ int settings_get_bootloader_max_application_size(int *max_size)
 
 #else
 
-int settings_get_bootloader_active_slot(uint8_t* slot) { return -ENOTSUP; }
-int settings_get_bootloader_max_application_size(int *max_size) { return -ENOTSUP; }
+int bootloader_get_active_slot(uint8_t* slot) { return -ENOTSUP; }
+int bootloader_get_max_appsize(int *max_size) { return -ENOTSUP; }
 
 #endif
