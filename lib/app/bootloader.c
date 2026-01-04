@@ -4,17 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#if CONFIG_BOOTLOADER_MCUBOOT && CONFIG_SETTINGS \
-	&& CONFIG_RETENTION_BOOTLOADER_INFO
+#include <stdlib.h>
+#include <stdint.h>
+#include <errno.h>
+
+#if CONFIG_BOOTLOADER_MCUBOOT && CONFIG_RETENTION_BOOTLOADER_INFO
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(app_settings, CONFIG_LOG_DEFAULT_LEVEL);
+LOG_MODULE_REGISTER(bootloader, CONFIG_LOG_DEFAULT_LEVEL);
 
-#include <app/settings.h>
+#include <app/bootloader.h>
 #include <zephyr/kernel.h>
-#include <zephyr/device.h>
-
-#include <zephyr/fs/zms.h>
 
 #include <zephyr/retention/blinfo.h>
 #include <bootutil/boot_status.h>
@@ -22,10 +22,7 @@ LOG_MODULE_REGISTER(app_settings, CONFIG_LOG_DEFAULT_LEVEL);
 #include <bootutil/security_cnt.h>
 #include <bootutil/boot_record.h>
 
-#include <stdlib.h>
-#include <errno.h>
-
-int bootloader_get_active_slot(uint8_t* slot)
+int bootloader_active_slot(uint8_t* slot)
 {
 	int rc;
 
@@ -38,7 +35,7 @@ int bootloader_get_active_slot(uint8_t* slot)
 	return 0;
 }
 
-int bootloader_get_max_appsize(int *max_size)
+int bootloader_max_appsize(int *max_size)
 {
 	int rc;
 
@@ -56,7 +53,7 @@ int bootloader_get_max_appsize(int *max_size)
 
 #else
 
-int bootloader_get_active_slot(uint8_t* slot) { return -ENOTSUP; }
-int bootloader_get_max_appsize(int *max_size) { return -ENOTSUP; }
+int bootloader_active_slot(uint8_t* slot) { return -ENOTSUP; }
+int bootloader_max_appsize(int *max_size) { return -ENOTSUP; }
 
 #endif
