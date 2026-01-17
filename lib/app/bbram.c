@@ -13,6 +13,7 @@ LOG_MODULE_DECLARE(app, LOG_LEVEL_DBG);
 #include <zephyr/drivers/bbram.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
+#include <zephyr/sys/hash_function.h>
 
 #include <inttypes.h>
 

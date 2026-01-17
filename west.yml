@@ -48,3 +48,10 @@ manifest:
       url: http://github.com/doyoonk/etcz.git
       revision: main
       path: etc
+
+    - name: s2opc
+      groups:
+        - s2opc
+      path: modules/lib/s2opc
+      revision: master
+      url: https://gitlab.com/systerel/S2OPC.git

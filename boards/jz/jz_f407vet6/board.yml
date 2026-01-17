@@ -1,3 +1,9 @@
+#
+# Copyright (c) 2025 HU Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
 board:
   name: jz_f407vet6
   full_name: JZ F407VET6 Development board

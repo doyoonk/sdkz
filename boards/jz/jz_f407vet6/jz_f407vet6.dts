@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+ /dts-v1/;
+
 #include "jz_f407vet6_common.dtsi"
 
 / {
@@ -27,9 +29,8 @@
 		led0 = &red_led_1;
 		led1 = &red_led_2;
 		sw0 = &button0;
-		btn0 = &button0;
-		btn1 = &button1;
-		btn2 = &button2;
+		sw1 = &button1;
+		sw2 = &button2;
 		pwm-led0 = &pwm_led_0;
 		die-temp0 = &die_temp;
 		volt-sensor0 = &vref;

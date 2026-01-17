@@ -153,22 +153,24 @@ DEFINE_HUP_CMD(hup_cmd_erase, "erase", _erase);
 
 static void _flash(void* h, int argc, const char** argv)
 {
+    int size;
     const struct flash_area* fa = NULL;
     int rc = -EINVAL;
 
-    if (argc >= ARG_FLASH_MAX)
+    if (argc < ARG_FLASH_MAX)
+        goto fw_flash_error;
+
+    rc = open_flash_partition(argv[ARG_FLASH_PARTITION], &fa);
+    if (rc != 0)
+        goto fw_flash_error;
+
+    size = strtol(argv[ARG_FLASH_LENGTH], NULL, 16);
+    if (size <= ASCII85_MAX_CHUNK_SIZE)
     {
-        rc = open_flash_partition(argv[ARG_FLASH_PARTITION], &fa);
-        if (rc != 0)
-            goto fw_flash_error;
-
-        int size = strtol(argv[ARG_FLASH_LENGTH], NULL, 16);
-        if (size > ASCII85_MAX_CHUNK_SIZE)
-        {
-            rc = -EINVAL;
-            goto fw_flash_error;
-        }
-
+        rc = -EINVAL;
+    }
+    else
+    {
         struct hup_handle* handle = (struct hup_handle*)h;
         int offset = strtol(argv[ARG_FLASH_OFFSET], NULL, 16);
         uint8_t* ptr = (uint8_t*)argv[ARG_FLASH_ASCII85_DATA];
@@ -182,18 +184,19 @@ static void _flash(void* h, int argc, const char** argv)
         if (rc != 0)
         {
             LOG_INF("Flash: Failed decode error code %d", rc);
-            goto fw_flash_error;
         }
-        rc = flash_area_write(fa, offset, handle->tx_buffer, size);
-        if (rc != 0)
+        else
         {
-            LOG_INF("Flash: Failed write error code %d", rc);
-            goto fw_flash_error;
-        }
-        if (last_size != size)
-        {
-            last_size = size;
-            LOG_INF("Flash: Succeed offset 0x%08x, len 0x%x", offset, size);
+            rc = flash_area_write(fa, offset, handle->tx_buffer, size);
+            if (rc != 0)
+            {
+                LOG_INF("Flash: Failed write error code %d", rc);
+            }
+            else if (last_size != size)
+            {
+                last_size = size;
+                LOG_INF("Flash: Succeed offset 0x%08x, len 0x%x", offset, size);
+            }
         }
     }
 
