@@ -62,6 +62,18 @@
 			};
 		};
 	};
+	
+	itcm: memory@10000000 {
+		compatible = "zephyr,memory-region", "arm,itcm";
+		reg = <0x10000000 DT_SIZE_K(64)>;
+		zephyr,memory-region = "ITCM";
+	};
+
+	dtcm: memory@30000000 {
+		compatible = "zephyr,memory-region", "arm,dtcm";
+		reg = <0x30000000 DT_SIZE_K(128)>;
+		zephyr,memory-region = "DTCM";
+	};
 
 	axisrama: memory@24000000 {
 		reg = <0x24000000 (DT_SIZE_M(2)

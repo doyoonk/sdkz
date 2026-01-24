@@ -1,0 +1,10 @@
+#
+# Copyright (c) 2025 HU Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+# zephyr-keep-sorted-start
+blink	Blinky
+sensor	Sensors
+# zephyr-keep-sorted-stop

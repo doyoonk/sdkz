@@ -4,9 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+# JZ F407VET6 Development board
 board:
   name: jz_f407vet6
-  full_name: JZ F407VET6 Development board
+  full_name: JZ F407VET6
   vendor: jz
   socs:
     - name: stm32f407xx

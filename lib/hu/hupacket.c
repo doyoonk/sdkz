@@ -55,7 +55,7 @@ LOG_MODULE_REGISTER(hup, CONFIG_LOG_DEFAULT_LEVEL);
 #define ACK_OF_RESPONSE	0x06
 #define NAK_OF_RESPONSE	0x15
 // common
-#define END_OF_PACKET	0x03
+#define END_OF_PACKET	0x04
 #define CRC_MARK		0x1a
 #define RECORD_MARK		0x1e
 

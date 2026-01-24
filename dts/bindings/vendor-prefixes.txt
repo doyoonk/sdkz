@@ -1,0 +1,11 @@
+#
+# Copyright (c) 2025 HU Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+# zephyr-keep-sorted-start
+hu	HU Inc.
+jz	JZ unknown
+vendor	Vendor
+# zephyr-keep-sorted-stop

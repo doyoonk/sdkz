@@ -10,13 +10,13 @@
 
 / {
 	soc {
-		rtc: rtc@46004000 {
+		rtc: rtc@56004000 {
 			compatible = "st,stm32-rtc";
-			reg = <0x46004000 0x400>;
+			reg = <0x56004000 0x400>;
 			// RTC_S_IRQn = 10, /*!< RTC secure interrupts through EXTI Line detection */
 			// RTC_IRQn   = 16, /*!< RTC non-secure interrupts through EXTI Line detection */
 			interrupts = <16 0>;
-			clocks = <&rcc STM32_CLOCK(APB4, 16U)>;
+			clocks = <&rcc STM32_CLOCK_BUS_APB4 0x00030000>;
 			prescaler = <32768>;
 			alarms-count = <2>;
 			alrm-exti-line = <17>;

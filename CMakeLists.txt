@@ -7,7 +7,7 @@
 # This CMake file is picked by the Zephyr build system because it is defined
 # as the module CMake entry point (see zephyr/module.yml).
 
-# Point to NCS root directory.
+# Point to SDK root directory.
 set(SDK_DIR ${CMAKE_CURRENT_LIST_DIR} CACHE PATH "SDK root directory")
 
 # We need to cache the build type so that it is not out of sync when CONF_FILE
@@ -15,11 +15,11 @@ set(SDK_DIR ${CMAKE_CURRENT_LIST_DIR} CACHE PATH "SDK root directory")
 set(CONF_FILE_BUILD_TYPE ${CONF_FILE_BUILD_TYPE} CACHE INTERNAL "The build type")
 
 foreach(runner_ext BIN HEX ELF)
-  zephyr_get(NCS_RUNNER_${runner_ext} SYSBUILD)
-  if(DEFINED NCS_RUNNER_${runner_ext})
+  zephyr_get(SDK_RUNNER_${runner_ext} SYSBUILD)
+  if(DEFINED SDK_RUNNER_${runner_ext})
     string(TOLOWER "${runner_ext}" type)
     set_target_properties(runners_yaml_props_target PROPERTIES
-                          "${type}_file" "${NCS_RUNNER_${runner_ext}}"
+                          "${type}_file" "${SDK_RUNNER_${runner_ext}}"
     )
   endif()
 endforeach()

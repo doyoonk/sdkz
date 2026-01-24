@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+
+# There might not be any board options, hence the optional source
+osource "$(KCONFIG_BOARD_DIR)/Kconfig"

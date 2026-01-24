@@ -109,12 +109,20 @@
 	ahb-prescaler = <1>;
 	apb1-prescaler = <4>;
 	apb2-prescaler = <2>;
-	status = "okay";
 };
 
 &plli2s {
+	/* Minimize audio clock error (with i2s mck-enabled) for all of:
+	 * - 22.05kHz / 16b, 24b or 32b
+	 * - 44.1kHz  / 16b, 24b or 32b
+	 * - 88.2kHz  / 16b or 24b
+	 * Note: because the PLLI2S is dependent on the main PLL, the latter
+	 *       should not be changed without checking impact on PLLI2S
+	 */
+	div-m = <25>;
 	mul-n = <192>;
 	div-r = <2>;
+	clocks = <&clk_hse>;
 	status = "okay";
 };
 
@@ -122,10 +130,10 @@
 	clocks = <&rcc STM32_CLOCK(APB1, 28)>,
 		<&rcc STM32_SRC_LSE RTC_SEL(1)>;
 	status = "okay";
-};
 
-&bbram {
-	status = "okay";
+	backup_regs {
+		status = "okay";
+	};
 };
 
 &ccm0 {
