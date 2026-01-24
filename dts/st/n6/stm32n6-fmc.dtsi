@@ -1,0 +1,34 @@
+/*
+ * Copyright (c) 2025 HU Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <arm/armv8.1-m.dtsi>
+#include <zephyr/dt-bindings/clock/stm32n6_clock.h>
+#include <zephyr/dt-bindings/reset/stm32n6_reset.h>
+#include <zephyr/dt-bindings/memory-attr/memory-attr.h>
+#include <zephyr/dt-bindings/memory-attr/memory-attr-arm.h>
+#include <zephyr/dt-bindings/memory-controller/stm32-fmc-nor-psram.h>
+#include <freq.h>
+
+/ {
+	soc {
+		fmc: memory-controller@58024000 {
+			compatible = "st,stm32-fmc";
+			reg = <0x58024000 0x1000>;
+			clocks = <&rcc STM32_CLOCK(AHB5, 4)>,
+				<&rcc STM32_SRC_HCLK5 FMC_SEL(0)>;
+
+			status = "disabled";
+
+			sram: sram {
+				compatible = "cts,stm32-fmc-nor-psram";
+				status = "disabled";
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+		};
+	};
+};

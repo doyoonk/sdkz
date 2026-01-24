@@ -26,7 +26,7 @@
 				zephyr,memory-region = "AHBSRAM1";
 				zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
 				reg = <0x38000000 DT_SIZE_K(16)>;
-				//status = "disabled";
+				status = "disabled";
 			};
 		};
 		ramcfg_sram2_ahb: ramcfg@42023380 {
@@ -42,7 +42,23 @@
 				zephyr,memory-region = "AHBSRAM2";
 				zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
 				reg = <0x38004000 DT_SIZE_K(16)>;
-				//status = "disabled";
+				status = "disabled";
+			};
+		};
+		ramcfg_venc_ram: ramcfg@42023400 {
+			compatible = "st,stm32n6-ramcfg";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x42023400 0x80>;
+			clocks = <&rcc STM32_CLOCK(MEM, 11)>, <&rcc STM32_CLOCK(APB5, 5)>;
+			clock-names = "axisram", "ramcfg";
+
+			venc_ram: memory@34400000 {
+				compatible = "zephyr,memory-region", "mmio-sram";
+				zephyr,memory-region = "VENCRAM";
+				zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+				reg = <0x34400000 DT_SIZE_K(128)>;
+				status = "disabled";
 			};
 		};
 		ramcfg_bkpsram: ramcfg@42023480 {
@@ -58,7 +74,7 @@
 				zephyr,memory-region = "BKPSRAM";
 				zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
 				reg = <0x3c000000 DT_SIZE_K(8)>;
-				//status = "disabled";
+				status = "disabled";
 			};
 		};
 	};
