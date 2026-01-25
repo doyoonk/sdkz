@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <st/n6/stm32n6-rtc.dtsi>
-#include <st/n6/stm32n657x0-sram.dtsi>
+#include "stm32n6570_dk_app_common.dtsi"
 
 #include <zephyr/dt-bindings/pwm/pwm.h>
 #include <zephyr/dt-bindings/pwm/pwm_ifx_tcpwm.h>
@@ -29,35 +28,6 @@
 		compatible = "blink-gpio-led";
 		led-gpios = <&gpioo 1 GPIO_ACTIVE_HIGH>;
 		blink-period-ms = <1000>;
-	};
-
-	backup_sram_retained@3c001c00 {
-		compatible = "zephyr,memory-region", "mmio-sram";
-		reg = <0x3c001c00 DT_SIZE_K(1)>;
-		zephyr,memory-region = "RetainedMem";
-		status = "okay";
-
-		retainedmem {
-			compatible = "zephyr,retained-ram";
-			status = "okay";
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			boot_info0: boot_info0@0 {
-				compatible = "zephyr,retention";
-				status = "okay";
-				reg = <0x0 0x100>;
-				prefix = [08 04];
-				checksum = <1>;
-			};
-
-			boot_info1: boot_info1@100 {
-				compatible = "zephyr,retention";
-				status = "okay";
-				reg = <0x100 0x300>;
-				prefix = [00 11 55 88 fa bc];
-			};
-		};
 	};
 
 	pwmleds: pwmleds {
@@ -96,36 +66,11 @@
 	vbat: vbat {
 		compatible = "st,stm32-vbat";
 		ratio = <4>;
-		io-channels = <&adc1 17>;
+		io-channels = <&adc1 18>;
 	};
 	aliases {
-		rtc = &rtc;
-		bbram = &bbram;
-
 		pwm-led0 = &pwm_led_0;
 		hup-uart = &cdc_acm_uart0;
-	};
-};
-
-&clk_lse {
-	driving-capability = <1>;
-	status = "okay";
-};
-
-&rtc {
-	clocks = <&rcc STM32_CLOCK(APB4, 16U)>,
-		<&rcc STM32_SRC_LSE RTC_SEL(1)>;
-	status = "okay";
-
-	backup_regs {
-		status = "okay";
-	};
-};
-
-&zephyr_udc0 {
-	cdc_acm_uart0: cdc_acm_uart0 {
-		compatible = "zephyr,cdc-acm-uart";
-		label = "Zephyr USB CDC-ACM";
 	};
 };
 
@@ -145,11 +90,6 @@
 	status = "okay";
 };
 
-&backup_sram {
-	reg = <0x3c000000 DT_SIZE_K(7)>;
-	status = "okay";
-};
-
 &timers1 {
 	status = "okay";
 	st,countermode = <0x10>; /* downcounter */
@@ -160,8 +100,4 @@
 		pinctrl-0 = <&tim1_ch1_pe9 &tim1_ch1n_pg10>;
 		pinctrl-names = "default";
 	};
-};
-
-&rng {
-    status = "okay";
 };

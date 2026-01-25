@@ -39,9 +39,10 @@ struct fixed_partition
 
 static struct fixed_partition fixed_partitions[] =
 {
-#if (defined(CONFIG_MCUBOOT_BOOTLOADER_MODE_RAM_LOAD) || ! defined(CONFIG_XIP))
- && FIXED_PARTITION_EXISTS(slot0_partition)
+#if defined(CONFIG_MCUBOOT_BOOTLOADER_MODE_RAM_LOAD) || ! defined(CONFIG_XIP)
+#if FIXED_PARTITION_EXISTS(slot0_partition)
     { "slot0", FIXED_PARTITION_ID(slot0_partition) },
+#endif
 #endif
 #if FIXED_PARTITION_EXISTS(slot1_partition)
     { "slot1", FIXED_PARTITION_ID(slot1_partition) },
