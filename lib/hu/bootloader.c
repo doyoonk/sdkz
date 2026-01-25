@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <errno.h>
 
-#if CONFIG_BOOTLOADER_MCUBOOT
+#if CONFIG_RETENTION_BOOTLOADER_INFO
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bootloader, CONFIG_LOG_DEFAULT_LEVEL);

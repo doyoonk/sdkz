@@ -11,6 +11,7 @@
 
 #include <hu/hupacket.h>
 #include <hu/ascii85.h>
+#include <hu/bootloader.h>
 #include <huerrno.h>
 
 LOG_MODULE_REGISTER(huflash, CONFIG_LOG_DEFAULT_LEVEL);
@@ -39,13 +40,14 @@ struct fixed_partition
 
 static struct fixed_partition fixed_partitions[] =
 {
-#if defined(CONFIG_MCUBOOT_BOOTLOADER_MODE_RAM_LOAD) || ! defined(CONFIG_XIP)
 #if FIXED_PARTITION_EXISTS(slot0_partition)
     { "slot0", FIXED_PARTITION_ID(slot0_partition) },
 #endif
-#endif
 #if FIXED_PARTITION_EXISTS(slot1_partition)
     { "slot1", FIXED_PARTITION_ID(slot1_partition) },
+#endif
+#if FIXED_PARTITION_EXISTS(scratch_partition)
+    { "scratch", FIXED_PARTITION_ID(scratch_partition) },
 #endif
 };
 static int last_size;
@@ -62,11 +64,33 @@ static int get_partition_id(const char* partition_name)
 
 static int open_flash_partition(const char* partition_name, const struct flash_area** fa)
 {
-    int partition_id = get_partition_id(partition_name);
-    if (partition_id < 0)
-        return partition_id;
+    int rc;
 
-    return flash_area_open(partition_id, fa);
+#if CONFIG_RETENTION_BOOTLOADER_INFO
+    if (strcmp(partition_name, "inactive") == 0)
+    {
+        uint8_t partition_id;
+        rc = bootloader_active_slot((uint8_t*)&partition_id);
+        if (rc != 0)
+            rc = get_partition_id(partition_name);
+        else if (partition_id == 0)
+            rc = get_partition_id("slot1");
+        else if (partition_id == 1)
+            rc = get_partition_id("slot0");
+        else
+            rc = -EINVAL;
+    }
+    else
+    {
+        rc = get_partition_id(partition_name);
+    }
+#else
+    rc = get_partition_id(partition_name);
+#endif
+
+    if (rc != 0)
+        return rc;
+    return flash_area_open(rc, fa);
 }
 static void close_flash_partition(const struct flash_area* fa)
 {

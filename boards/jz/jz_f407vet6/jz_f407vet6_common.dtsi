@@ -21,7 +21,6 @@
 		zephyr,canbus = &can1;
 		zephyr,code-partition = &slot0_partition;
 		zephyr,settings-partition = &settings_partition;
-		zephyr,bootloader-info = &boot_info0;
 	};
 
 	leds {
@@ -52,35 +51,6 @@
 			label = "Push Button - Button SW3";
 			gpios = <&gpioe 12 GPIO_ACTIVE_LOW>;
 			zephyr,code = <INPUT_BTN_2>;
-		};
-	};
-
-	backup_sram_retained@40024c00 {
-		compatible = "zephyr,memory-region", "mmio-sram";
-		reg = <0x40024c00 DT_SIZE_K(1)>;
-		zephyr,memory-region = "RetainedMem";
-		status = "okay";
-
-		retainedmem {
-			compatible = "zephyr,retained-ram";
-			status = "okay";
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			boot_info0: boot_info0@0 {
-				compatible = "zephyr,retention";
-				status = "okay";
-				reg = <0x0 0x100>;
-				prefix = [08 04];
-				checksum = <1>;
-			};
-
-			boot_info1: boot_info1@100 {
-				compatible = "zephyr,retention";
-				status = "okay";
-				reg = <0x100 0x300>;
-				prefix = [00 11 55 88 fa bc];
-			};
 		};
 	};
 };
@@ -141,7 +111,6 @@
 };
 
 &backup_sram {
-	reg = <0x40024000 DT_SIZE_K(3)>;
 	status = "okay";
 };
 
