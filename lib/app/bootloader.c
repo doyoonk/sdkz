@@ -50,34 +50,8 @@ int bootloader_active_slot(uint8_t* slot)
 	return 0;
 }
 
-int bootloader_max_appsize(int *max_size)
-{
-	int rc;
-
-	*max_size = 0xffffffff;
-#if CONFIG_RETENTION_BOOTLOADER_INFO_OUTPUT_SETTINGS
- 	rc = settings_runtime_get("blinfo/max_application_size", max_size, sizeof(*max_size));
-	if (rc != sizeof(*max_size)) {
-		LOG_ERR("Failed to fetch max application size from settings: %d", rc);
-		return rc < 0 ? rc : -EIO;
-	}
-#else
-	rc = blinfo_lookup(BLINFO_MAX_APPLICATION_SIZE, (char*)max_size, sizeof(*max_size));
-	if (rc < 0) {
-		LOG_ERR("Failed to lookup max application size: %d", rc);
-		return rc;
-	} else if (rc == 0) {
-		LOG_ERR("No data read for max application size");
-		return -ENOENT;
-	}
-#endif
-
-	return 0;
-}
-
 #else
 
 int bootloader_active_slot(uint8_t* slot) { return -ENOTSUP; }
-int bootloader_max_appsize(int *max_size) { return -ENOTSUP; }
 
 #endif

@@ -17,7 +17,6 @@
 		zephyr,sram = &axisrama;
 		zephyr,dtcm = &dtcm;
 		zephyr,itcm = &itcm;
-		zephyr,bootloader-info = &boot_info0;
 	};
 	example_sensor: example-sensor {
 		compatible = "zephyr,example-sensor";
@@ -87,6 +86,14 @@
 };
 
 &axisram6 {
+	status = "okay";
+};
+
+&itcm {
+	status = "okay";
+};
+
+&dtcm {
 	status = "okay";
 };
 
