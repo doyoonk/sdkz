@@ -1,0 +1,50 @@
+/*
+ * Copyright (c) 2025 Nordic Semiconductor ASA
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#ifndef MODULES_MICROPYTHON_INCLUDE_MPCONFIGPORT_H_
+#define MODULES_MICROPYTHON_INCLUDE_MPCONFIGPORT_H_
+
+#include <stdint.h>
+#include <alloca.h>
+
+typedef long mp_off_t;
+
+#define asm __asm__
+
+/*
+ * Constants
+ */
+#define MICROPY_HW_BOARD_NAME CONFIG_BOARD
+#define MICROPY_HW_MCU_NAME CONFIG_BOARD_QUALIFIERS
+#define MICROPY_PY_SYS_PLATFORM "zephyr"
+#define MP_STATE_PORT MP_STATE_VM
+
+/*
+ * Constant configurations to be moved to kconfig in the future
+ */
+#define MICROPY_ENABLE_GC 1
+#define MICROPY_HELPER_REPL 1
+#define MICROPY_ERROR_REPORTING MICROPY_ERROR_REPORTING_TERSE
+#define MICROPY_PY_ASYNC_AWAIT 0
+#define MICROPY_PY_BUILTINS_SET 0
+#define MICROPY_PY_ATTRTUPLE 0
+#define MICROPY_PY_COLLECTIONS 0
+#define MICROPY_PY_MATH 0
+#define MICROPY_PY_IO 0
+#define MICROPY_PY_STRUCT 0
+
+/*
+ * Configurations
+ */
+#if CONFIG_MICROPYTHON_FLOAT_NONE
+#define MICROPY_FLOAT_IMPL MICROPY_FLOAT_IMPL_NONE
+#elif CONFIG_MICROPYTHON_FLOAT_SINGLE
+#define MICROPY_FLOAT_IMPL MICROPY_FLOAT_IMPL_FLOAT
+#else
+#define MICROPY_FLOAT_IMPL MICROPY_FLOAT_IMPL_DOUBLE
+#endif
+
+#endif /* MODULES_MICROPYTHON_INCLUDE_MPCONFIGPORT_H_ */

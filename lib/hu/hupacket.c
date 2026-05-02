@@ -226,8 +226,8 @@ void hupacket_append_char(void* h, char* buffer, const char ch)
 	}
 }
 void hupacket_append_int(void* h, char* buffer, const int val)
-{                   // 123456789012
-	char buf[12];	// -2147483647\x00
+{                   // 12,345,678,9012
+	char buf[12];	// -2,147,483,647\x00
 	char* ptr = itoa(val, buf, 10);
 	if (ptr != NULL)
 		hupacket_append_str(h, buffer, buf);

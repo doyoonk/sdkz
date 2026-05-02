@@ -18,6 +18,7 @@
 #include <errno.h>
 #include <stdio.h>
 
+#if CONFIGNET_L2_ETHERNET
 LOG_MODULE_REGISTER(app_udp, CONFIG_LOG_DEFAULT_LEVEL);
 
 struct handle
@@ -124,3 +125,15 @@ const struct app_api udp_server =
 	.recv = _recv_udp,
 	.send = _send_udp
 };
+
+#else
+
+const struct app_api udp_server =
+{
+	.init = NULL,
+	.deinit = NULL,
+	.recv = NULL,
+	.send = NULL
+};
+
+#endif

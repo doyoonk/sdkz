@@ -1,0 +1,41 @@
+# Copyright (c) 2025 Nordic Semiconductor ASA
+# SPDX-License-Identifier: Apache-2.0
+
+config ZEPHYR_MICROPYTHON_MODULE
+	bool
+
+config MICROPYTHON
+	bool "Micropython support"
+	depends on SHELL
+
+if MICROPYTHON
+
+config MICROPYTHON_HEAP_SIZE
+	int "Micropython heap size in bytes"
+	default 4096
+
+config MICROPYTHON_RX_BUF_SIZE
+	int "Micropython rx buffer size in bytes"
+	default 256
+
+config MICROPYTHON_FILE_SYSTEM
+	bool "Micropython virtual filesystem support"
+	depends on FILE_SYSTEM
+	default y
+
+choice MICROPYTHON_FLOAT
+	prompt "Micropython float support level"
+	default MICROPYTHON_FLOAT_NONE
+
+config MICROPYTHON_FLOAT_NONE
+	bool "No float support"
+
+config MICROPYTHON_FLOAT_SINGLE
+	bool "Float single precision support"
+
+config MICROPYTHON_FLOAT_DOUBLE
+	bool "Float double precision support"
+
+endchoice # MICROPYTHON_FLOAT
+
+endif # MICROPYTHON

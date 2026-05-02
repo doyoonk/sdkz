@@ -44,7 +44,7 @@ static void _hup_server(void* arg1, void* arg2, void* arg3)
 		received = h->api->recv(h->drv, h->buffer, sizeof(h->buffer));
 		if (received < 0)
 		{
-			NET_ERR("UDP : Connection error %d", errno);
+			LOG_ERR("UDP : Connection error %d", errno);
 			break;
 		}
 		else if (received)
@@ -57,6 +57,9 @@ static void _hup_server(void* arg1, void* arg2, void* arg3)
 void* init_hup_server(const struct app_api* api, const char* name, void* stack, int stack_size, void* arg1, void* arg2, void* arg3)
 {
 	struct handle* h;
+
+	if (api->init == NULL)
+		return NULL;
 
 	h = palloc(sizeof(struct handle));
 	if (h == NULL)

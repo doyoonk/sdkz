@@ -11,7 +11,7 @@
 #include <zephyr/dt-bindings/pwm/ra_pwm.h>
 #include <zephyr/dt-bindings/pwm/stm32_pwm.h>
 
-/delete-node/ &red_led_1;
+/delete-node/ &red_led_2;
 / {
 	chosen {
 		zephyr,sram = &axisrama;
@@ -52,7 +52,7 @@
 			zephyr,code = <INPUT_KEY_2>;
 		};
 	};
-	die_temp: dietemp {
+	/*die_temp: dietemp {
 		compatible = "st,stm32-temp-cal";
 		ts-cal1-addr = <0x081FF080>;
 		ts-cal2-addr = <0x081FF082>;
@@ -61,13 +61,14 @@
 		ts-cal-vrefanalog = <1800>;
 		ts-cal-resolution = <16>;
 		io-channels = <&adc1 16>;
-	};
+	};*/
 	vbat: vbat {
 		compatible = "st,stm32-vbat";
 		ratio = <4>;
 		io-channels = <&adc1 18>;
 	};
 	aliases {
+		/delete-property/ led1;
 		pwm-led0 = &pwm_led_0;
 		hup-uart = &cdc_acm_uart0;
 	};

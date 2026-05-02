@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 HU Inc.
+ * Copyright (c) 2025-2026 HU Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -41,13 +41,10 @@ struct fixed_partition
 static struct fixed_partition fixed_partitions[] =
 {
 #if FIXED_PARTITION_EXISTS(slot0_partition)
-    { "slot0", FIXED_PARTITION_ID(slot0_partition) },
+    { "slot0", PARTITION_ID(slot0_partition) },
 #endif
 #if FIXED_PARTITION_EXISTS(slot1_partition)
-    { "slot1", FIXED_PARTITION_ID(slot1_partition) },
-#endif
-#if FIXED_PARTITION_EXISTS(scratch_partition)
-    { "scratch", FIXED_PARTITION_ID(scratch_partition) },
+    { "slot1", PARTITION_ID(slot1_partition) },
 #endif
 };
 static int last_size;

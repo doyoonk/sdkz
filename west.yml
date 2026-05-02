@@ -17,6 +17,9 @@ manifest:
       url-base: https://github.com/zephyrproject-rtos
     - name: babblesim
       url-base: https://github.com/BabbleSim
+    # https://github.com/bjarki-andreasen/zephyr-micropython/
+    - name: bjarki-andreasen
+      url-base: https://github.com/bjarki-andreasen
 
   group-filter: [-babblesim, -optional]
 
@@ -32,6 +35,7 @@ manifest:
           - cmsis-dsp
           - cmsis-nn
           - cmsis_6
+          - hal_nxp
           - hal_st
           - hal_stm32
           - littlefs
@@ -41,6 +45,7 @@ manifest:
           - percepio
           - picolibc
           - segger
+          - tf-psa-crypto
           - tinycrypt
           - zcbor
 
@@ -55,3 +60,17 @@ manifest:
       path: modules/lib/s2opc
       revision: master
       url: https://gitlab.com/systerel/S2OPC.git
+
+    - name: micropython
+      path: modules/lib/micropython
+      revision: master
+      url: https://github.com/micropython/micropython.git
+      submodules: #true  # Automatically updates all submodules in this repo
+        - path: lib/micropython-lib
+    # https://github.com/bjarki-andreasen/zephyr-micropython/
+    #- name: micropython
+    #  remote: bjarki-andreasen
+    #  revision: aceafd9e98151dd6f32ff142055947f0f32beeda
+    #  path: modules/lib/micropython
+    #  submodules:
+    #    - path: lib/micropython-lib

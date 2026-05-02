@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <st/n6/stm32n6-rtc.dtsi>
 #include <st/n6/stm32n657x0-sram.dtsi>
 
 / {
@@ -55,9 +54,11 @@
 		<&rcc STM32_SRC_LSE RTC_SEL(1)>;
 	status = "okay";
 
-    backup_regs {
-        status = "okay";
-    };
+	bbram: backup_regs {
+		compatible = "st,stm32-bbram";
+		st,backup-regs = <32>;
+		status = "okay";
+	};
 };
 
 &backup_sram {

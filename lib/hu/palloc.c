@@ -13,7 +13,7 @@
 #include <string.h>
 
 #if CONFIG_HU_PALLOC && DT_NODE_EXISTS(DT_CHOSEN(zephyr_dtcm))
- 
+
 #define ALIGNED_MASK		(sizeof(size_t) - 1)
 #define ALIGNED_VALUE(a)	(((a) + (size_t)(ALIGNED_MASK)) & ~(size_t)(ALIGNED_MASK))
 

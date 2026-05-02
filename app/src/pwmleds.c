@@ -29,7 +29,7 @@ LOG_MODULE_DECLARE(app, CONFIG_APP_LOG_LEVEL);
 
 static const struct pwm_dt_spec pwm_led = PWM_DT_SPEC_GET(DT_ALIAS(pwm_led0));
 
-static void start_pwmleds(void*, void*, void*)
+/*static*/ void start_pwmleds(void*, void*, void*)
 {
 	uint64_t cycle_per_sec;
 	uint32_t max_period;

@@ -54,9 +54,11 @@ struct app_data app =
 	.hup_udp = NULL,
 };
 
+#if CONFIGNET_L2_ETHERNET
 static struct z_thread_stack_element app_stack_sect
 	__aligned(Z_KERNEL_STACK_OBJ_ALIGN)
 	hup_udp_stack_area[K_KERNEL_STACK_LEN(HUP_UDP_THREAD_STACK_SIZE)];
+#endif
 static struct z_thread_stack_element app_stack_sect
 	__aligned(Z_KERNEL_STACK_OBJ_ALIGN)
 	hup_uart_stack_area[K_KERNEL_STACK_LEN(HUP_UART_THREAD_STACK_SIZE)];
@@ -75,10 +77,12 @@ static struct backup_store __stm32_backup_sram_section backup;
 #endif
 #endif
 
+#if DT_HAS_ALIAS(rtc)
+static const struct device *const rtc = DEVICE_DT_GET(DT_ALIAS(rtc));
+#endif
+
 #if CONFIG_NET_CONNECTION_MANAGER
 #define EVENT_MASK (NET_EVENT_L4_CONNECTED | NET_EVENT_L4_DISCONNECTED)
-
-static const struct device *const rtc = DEVICE_DT_GET(DT_ALIAS(rtc));
 
 static void event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt_event, struct net_if *iface)
 {
@@ -135,6 +139,7 @@ static void deinit_app()
 #endif
 }
 
+#if DT_HAS_ALIAS(rtc)
 #if !defined(CONFIG_BOARD_HAS_VBAT_BATTERY)
 static int set_date_time(const struct device *rtc)
 {
@@ -181,6 +186,7 @@ static int get_date_time(const struct device *rtc)
 
 	return ret;
 }
+#endif
 
 int main(void)
 {
@@ -213,20 +219,24 @@ int main(void)
 
 	init_app();
 
+#if CONFIGNET_L2_ETHERNET
 	LOG_INF("hu packet server start for UDP port %d", MY_PORT);
 	app.hup_udp = init_hup_server(&udp_server, "hup_udp"
 		, hup_udp_stack_area, K_THREAD_STACK_SIZEOF(hup_udp_stack_area)
 		, (void*)MY_PORT, NULL, NULL);
+#endif
 
-	LOG_INF("hu packet server start for USB cdc acm uart");
+	LOG_INF("hu packet server start for USB cdc acm uart: %p", &uart_interrupt);
 	app.hup_uart = init_hup_server(&uart_interrupt, "hup_acm"
 		, hup_uart_stack_area, K_THREAD_STACK_SIZEOF(hup_uart_stack_area)
 		, (void*)DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart), (void*)115200, "n81");
 
+#if DT_HAS_ALIAS(rtc)
 #if !defined(CONFIG_BOARD_HAS_VBAT_BATTERY)
 	set_date_time(rtc);
 #endif
 	get_date_time(rtc);
+#endif
 
 #ifdef BACKUP_DEV_COMPAT
 	const struct device *const dev = DEVICE_DT_GET_ONE(BACKUP_DEV_COMPAT);
