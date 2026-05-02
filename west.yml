@@ -67,6 +67,10 @@ manifest:
       url: https://github.com/micropython/micropython.git
       submodules: #true  # Automatically updates all submodules in this repo
         - path: lib/micropython-lib
+    - name: micropython-zephyr
+      path: modules/lib/micropython/zephyr
+      revision: main
+      url: https://github.com/doyoonk/micropython-zephyr.git
     # https://github.com/bjarki-andreasen/zephyr-micropython/
     #- name: micropython
     #  remote: bjarki-andreasen

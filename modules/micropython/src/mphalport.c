@@ -147,7 +147,7 @@ void gc_collect(void)
 	gc_collect_end();
 }
 
-static void bypass_callback(const struct shell *sh, uint8_t *data, size_t len)
+static void bypass_callback(const struct shell *sh, uint8_t *data, size_t len, void *user_data)
 {
 	uint32_t size;
 
@@ -169,13 +169,13 @@ static int cmd_python(const struct shell *sh, size_t argc, char **argv)
 	gc_init(heap, heap + sizeof(heap));
 	mp_init();
 	active_sh = sh;
-	shell_set_bypass(sh, bypass_callback);
+	shell_set_bypass(sh, bypass_callback, NULL);
 	if (argc == 1) {
 		pyexec_friendly_repl();
 	} else if (argc == 2) {
 		pyexec_file_if_exists(argv[1]);
 	}
-	shell_set_bypass(sh, NULL);
+	shell_set_bypass(sh, NULL, NULL);
 	/* Bug in bypass mode locks shell, force unlock it */
 	z_shell_unlock(sh);
 	gc_sweep_all();
