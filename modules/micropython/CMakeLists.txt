@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Nordic Semiconductor ASA
 # SPDX-License-Identifier: Apache-2.0
 
-if(CONFIG_MICROPYTHON)
+if(CONFIG_MICROPYTHON_LIGHT)
   zephyr_library_named(micropython)
 
   zephyr_library_include_directories(include)
@@ -22,6 +22,10 @@ if(CONFIG_MICROPYTHON)
     ${MICROPY_DIR}/shared/runtime/gchelper_generic.c
     ${MICROPY_DIR}/shared/runtime/stdout_helpers.c
     ${MICROPY_DIR}/shared/readline/readline.c
+  )
+
+  zephyr_library_compile_options(
+      -std=gnu99 -fomit-frame-pointer
   )
 
   zephyr_library_sources(${MICROPY_SOURCES})

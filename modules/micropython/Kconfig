@@ -4,11 +4,11 @@
 config ZEPHYR_MICROPYTHON_MODULE
 	bool
 
-config MICROPYTHON
+config MICROPYTHON_LIGHT
 	bool "Micropython support"
 	depends on SHELL
 
-if MICROPYTHON
+if MICROPYTHON_LIGHT
 
 config MICROPYTHON_HEAP_SIZE
 	int "Micropython heap size in bytes"
@@ -38,4 +38,4 @@ config MICROPYTHON_FLOAT_DOUBLE
 
 endchoice # MICROPYTHON_FLOAT
 
-endif # MICROPYTHON
+endif # MICROPYTHON_LIGHT
