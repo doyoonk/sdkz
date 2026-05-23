@@ -10,6 +10,10 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 project(app LANGUAGES C)
 
+if (CONFIG_MICROPY_APP)
+
+endif()
+
 target_sources(app PRIVATE
     src/hup_server.c
     src/main.c

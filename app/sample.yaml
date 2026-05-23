@@ -13,7 +13,10 @@ common:
   build_only: true
   integration_platforms:
     - custom_plank
+    - frdm_mcxa156
+    - jz_f407vet6
     - nucleo_f302r8
+    - stm32n6570_dk
 tests:
   app.default: {}
   app.debug:
