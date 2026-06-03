@@ -117,8 +117,11 @@ static int _send_async(void* user_data, const uint8_t* data_ptr, size_t data_len
 static void _irq_cb(const struct device *dev, void *user_data)
 {
 	struct handle* h = (struct handle*)user_data;
-	while (uart_irq_update(dev) && uart_irq_is_pending(dev))
+	while (true)
 	{
+		uart_irq_update(dev);
+		if (uart_irq_is_pending(dev) <= 0)
+			break;
 		if (uart_irq_rx_ready(dev))
 		{
 			int err;

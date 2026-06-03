@@ -9,7 +9,6 @@
 LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 
 #include "main.h"
-#include <app_version.h>
 #include <huerrno.h>
 
 #include <zephyr/kernel.h>
@@ -30,6 +29,7 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 
 #include <zephyr/sys/reboot.h>
 #include <zephyr/sys/util.h>
+#include <zephyr/app_version.h>
 
 #include <app/usb.h>
 #include <app/app_api.h>
@@ -190,6 +190,8 @@ static int get_date_time(const struct device *rtc)
 
 int main(void)
 {
+	uint8_t partition_id;
+	int rc;
 	LOG_INF("Zephyr Example Application %s/0x%08x, %s, %s", APP_VERSION_STRING, APPVERSION, __DATE__ " " __TIME__, KERNEL_VERSION_EXTENDED_STRING);
 
 #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_itcm))
@@ -218,6 +220,13 @@ int main(void)
 #endif
 
 	init_app();
+
+	rc = bootloader_active_slot((uint8_t*)&partition_id);
+	if (rc == 0) {
+		LOG_ERR("ERROR: blinfo/running_slot");
+	} else {
+		LOG_INF("blinfo/running_slot %d", partition_id);
+	}
 
 #if CONFIGNET_L2_ETHERNET
 	LOG_INF("hu packet server start for UDP port %d", MY_PORT);

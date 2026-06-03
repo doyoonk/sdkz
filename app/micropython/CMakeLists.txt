@@ -1,19 +1,34 @@
+# This file is part of the MicroPython project, http://micropython.org/
 #
-# Copyright (c) 2021 Nordic Semiconductor ASA
-# Copyright (c) 2025 HU Inc.
+# The MIT License (MIT)
 #
-# SPDX-License-Identifier: Apache-2.0
+# Copyright 2020 NXP
 #
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 
-cmake_minimum_required(VERSION 3.13.1)
+cmake_minimum_required(VERSION 3.20.0)
+
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+project(micropython)
 
-project(app LANGUAGES C)
-
-if (CONFIG_MICROPYTHON)
-
-set(MICROPY_PORT_DIR    ${CMAKE_CURRENT_SOURCE_DIR}/micropython)
-set(MICROPY_DIR         ${WEST_TOPDIR}/modules/lib/micropython)
+set(MICROPY_PORT_DIR    ${CMAKE_CURRENT_SOURCE_DIR})
+set(MICROPY_DIR         ${MICROPY_PORT_DIR}/../..)
 set(MICROPY_TARGET      micropython)
 string(TOUPPER          ZEPHYR_${BOARD} MICROPY_BOARD)
 
@@ -166,15 +181,10 @@ include(${MICROPY_DIR}/py/mkrules.cmake)
 add_dependencies(BUILD_VERSION_HEADER zephyr_generated_headers)
 add_dependencies(${MICROPY_TARGET} zephyr_generated_headers)
 
-endif()
-
 target_sources(app PRIVATE
-    src/hup_server.c
-    src/main.c
-    src/pwmleds.c
-
-    ${MICROPY_PORT_DIR}/src/zephyr_start.c
-    ${MICROPY_PORT_DIR}/src/zephyr_getchar.c
+    src/zephyr_start.c
+    src/zephyr_getchar.c
+    src/usbd.c
 )
 
 target_link_libraries(app PRIVATE ${MICROPY_TARGET})
