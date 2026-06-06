@@ -76,3 +76,30 @@
 &rng {
     status = "okay";
 };
+
+&ext_flash {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		/delete-node/ partition@10000;
+		/delete-node/ partition@210000;
+		/delete-node/ partition@410000;
+
+		slot0_partition: partition@80000 {
+			label = "image-0";
+			reg = <0x00080000 DT_SIZE_K(1536)>;
+		};
+
+		slot1_partition: partition@200000 {
+			label = "image-1";
+			reg = <0x00200000 DT_SIZE_K(1536)>;
+		};
+
+		storage_partition: partition@400000 {
+			label = "storage";
+			reg = <0x00400000 DT_SIZE_M(1)>;
+		};
+	};
+};

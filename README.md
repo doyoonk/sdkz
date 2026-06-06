@@ -64,7 +64,7 @@ To build the application, run the following command:
 
 ```shell
 cd ~/sdkz
-west build -b $BOARD sdk/app -- '-DCONFIG_BOOTLOADER_MCUBOOT=y -DCONFIG_MCUBOOT_SIGNATURE_KEY_FILE="etc/ssl/certs/mcuboot_sign-rsa-2048.pem"'
+west build -b $BOARD sdk/app -- '-DCONFIG_BOOTLOADER_MCUBOOT=y -DCONFIG_MCUBOOT_SIGNATURE_KEY_FILE="/home/admin/sdkz/etc/ssl/certs/mcuboot_sign-rsa-2048.pem"'
 ```
 
 where `$BOARD` is the target board.
@@ -77,7 +77,12 @@ A sample debug configuration is also provided. To apply it, run the following
 command:
 
 ```shell
-west build -b $BOARD sdk/app -- '-DEXTRA_CONF_FILE=debug.conf -DCONFIG_BOOTLOADER_MCUBOOT=y -DCONFIG_MCUBOOT_SIGNATURE_KEY_FILE="etc/ssl/certs/mcuboot_sign-rsa-2048.pem"'
+west build -b $BOARD sdk/app -- '-DEXTRA_CONF_FILE=debug.conf -DCONFIG_BOOTLOADER_MCUBOOT=y -DCONFIG_MCUBOOT_SIGNATURE_KEY_FILE="/home/admin/sdkz/etc/ssl/certs/mcuboot_sign-rsa-2048.pem"'
+```
+
+```shell
+# for mcuboot of stm32n6570_dk
+west build -b stm32n6570_dk//fsbl ./bootloader/mcuboot/boot/zephyr -d ./builds/stm32n6570_dk/mcuboot -p -- -DEXTRA_CONF_FILE="/home/admin/sdkz/sdk/app/boards/stm32n6570_dk_stm32n657xx_fsbl.conf" -DEXTRA_DTC_OVERLAY_FILE="/home/admin/sdkz/sdk/app/boards/stm32n6570_dk_stm32n657xx_fsbl.overlay"
 ```
 
 Once you have built the application, run the following command to flash it:

@@ -33,6 +33,7 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 
 #include <app/usb.h>
 #include <app/app_api.h>
+#include <hu/bootloader.h>
 
 #include <hu/hupacket.h>
 #include <hu/palloc.h>
