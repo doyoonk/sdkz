@@ -58,9 +58,6 @@
 #include "extmod/vfs.h"
 #endif
 
-#undef CONFIG_USB_DEVICE_STACK
-#undef CONFIG_USB_DEVICE_STACK_NEXT
-
 #if MICROPY_ENABLE_GC
 #if MICROPY_GC_SPLIT_HEAP && DT_HAS_COMPAT_STATUS_OKAY(micropython_heap)
 
@@ -88,7 +85,7 @@ DT_FOREACH_STATUS_OKAY(micropython_heap, MICROPY_HEAP_DEFINE)
 
 static __noinit char heap[MICROPY_HEAP_SIZE];
 
-#if defined(CONFIG_USB_DEVICE_STACK_NEXT)
+#if 0 //defined(CONFIG_USB_DEVICE_STACK_NEXT)
 extern int mp_usbd_init(void);
 #endif // defined(CONFIG_USB_DEVICE_STACK_NEXT)
 
@@ -138,11 +135,11 @@ soft_reset:
     #endif
     mp_init();
 
-    #ifdef CONFIG_USB_DEVICE_STACK
+    #if 0 //def CONFIG_USB_DEVICE_STACK
     usb_enable(NULL);
     #endif
 
-    #ifdef CONFIG_USB_DEVICE_STACK_NEXT
+    #if 0 //def CONFIG_USB_DEVICE_STACK_NEXT
     mp_usbd_init();
     #endif
 

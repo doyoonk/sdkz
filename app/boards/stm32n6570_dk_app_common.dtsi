@@ -66,11 +66,39 @@
 	status = "okay";
 };
 
+&axisram12 {
+	ranges = <0x0 0x24000000 DT_SIZE_K(3840)>;
+	memory@0 {
+		reg = <0x0 (DT_SIZE_K(400) + DT_SIZE_K(624) + DT_SIZE_M(1)
+			+ DT_SIZE_K(448)
+			+ DT_SIZE_K(448)
+			+ DT_SIZE_K(448)
+			+ DT_SIZE_K(448)
+		)>;
+	};
+};
+
 &zephyr_udc0 {
 	cdc_acm_uart0: cdc_acm_uart0 {
 		compatible = "zephyr,cdc-acm-uart";
-		label = "Zephyr USB CDC-ACM";
+		label = "Zephyr USB CDC-ACM0";
 	};
+	cdc_acm_uart1: cdc_acm_uart1 {
+		compatible = "zephyr,cdc-acm-uart";
+		label = "Zephyr USB CDC-ACM1";
+	};
+	cdc_acm_uart2: cdc_acm_uart2 {
+		compatible = "zephyr,cdc-acm-uart";
+		label = "Zephyr USB CDC-ACM2";
+	};
+};
+
+&xspim {
+    status = "okay";
+};
+
+&crc {
+    status = "okay";
 };
 
 &rng {

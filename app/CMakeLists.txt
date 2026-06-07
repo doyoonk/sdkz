@@ -50,7 +50,7 @@ endif()
 set(MICROPY_SOURCE_PORT
     main.c
     help.c
-    machine_i2c.c
+    #machine_i2c.c
     machine_spi.c
     machine_pin.c
     machine_timer.c
@@ -166,15 +166,22 @@ include(${MICROPY_DIR}/py/mkrules.cmake)
 add_dependencies(BUILD_VERSION_HEADER zephyr_generated_headers)
 add_dependencies(${MICROPY_TARGET} zephyr_generated_headers)
 
+target_sources(app PRIVATE
+    ${MICROPY_PORT_DIR}/src/zephyr_start.c
+)
+
+if (NOT CONFIG_CONSOLE_SUBSYS)
+target_sources(app PRIVATE
+    ${MICROPY_PORT_DIR}/src/zephyr_getchar.c
+)
+endif()
+
 endif()
 
 target_sources(app PRIVATE
     src/hup_server.c
     src/main.c
     src/pwmleds.c
-
-    ${MICROPY_PORT_DIR}/src/zephyr_start.c
-    ${MICROPY_PORT_DIR}/src/zephyr_getchar.c
 )
 
 target_link_libraries(app PRIVATE ${MICROPY_TARGET})

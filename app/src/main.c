@@ -55,7 +55,7 @@ struct app_data app =
 	.hup_udp = NULL,
 };
 
-#if CONFIGNET_L2_ETHERNET
+#if CONFIG_NET_L2_ETHERNET
 static struct z_thread_stack_element app_stack_sect
 	__aligned(Z_KERNEL_STACK_OBJ_ALIGN)
 	hup_udp_stack_area[K_KERNEL_STACK_LEN(HUP_UDP_THREAD_STACK_SIZE)];
@@ -193,6 +193,7 @@ int main(void)
 {
 	uint8_t partition_id;
 	int rc;
+
 	LOG_INF("Zephyr Example Application %s/0x%08x, %s, %s", APP_VERSION_STRING, APPVERSION, __DATE__ " " __TIME__, KERNEL_VERSION_EXTENDED_STRING);
 
 #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_itcm))
@@ -229,7 +230,7 @@ int main(void)
 		LOG_INF("blinfo/running_slot %d", partition_id);
 	}
 
-#if CONFIGNET_L2_ETHERNET
+#if CONFIG_NET_L2_ETHERNET
 	LOG_INF("hu packet server start for UDP port %d", MY_PORT);
 	app.hup_udp = init_hup_server(&udp_server, "hup_udp"
 		, hup_udp_stack_area, K_THREAD_STACK_SIZEOF(hup_udp_stack_area)

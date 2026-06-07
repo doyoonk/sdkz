@@ -18,7 +18,7 @@
 #include <errno.h>
 #include <stdio.h>
 
-#if CONFIGNET_L2_ETHERNET
+#if CONFIG_NET_L2_ETHERNET
 LOG_MODULE_REGISTER(app_udp, CONFIG_LOG_DEFAULT_LEVEL);
 
 struct handle
@@ -35,7 +35,7 @@ static ssize_t _send_udp(void* user_data, const uint8_t* buffer, size_t size)
 
 	if (ret < 0)
 	{
-		NET_ERR("UDP: Failed to send %d", errno);
+		LOG_ERR("UDP: Failed to send %d", errno);
 		ret = -errno;
 	}
 	return ret;
@@ -52,7 +52,7 @@ static ssize_t _recv_udp(void* user_data, uint8_t* buffer, size_t size)
 
 	if (received < 0)
 	{
-		NET_ERR("UDP: Failed to receive %d", errno);
+		LOG_ERR("UDP: Failed to receive %d", errno);
 		received = -errno;
 	}
 	return received;
@@ -66,7 +66,7 @@ static int _bind_udp(struct handle* h, struct sockaddr *addr, socklen_t addrlen)
 	h->sock = zsock_socket(addr->sa_family, SOCK_DGRAM, IPPROTO_UDP);
 	if (h->sock < 0)
 	{
-		NET_ERR("Failed to create UDP socket (udp): %d", errno);
+		LOG_ERR("Failed to create UDP socket (udp): %d", errno);
 		return -errno;
 	}
 
@@ -74,7 +74,7 @@ static int _bind_udp(struct handle* h, struct sockaddr *addr, socklen_t addrlen)
 	if (ret < 0)
 	{
 		close(h->sock);
-		NET_ERR("Failed to bind UDP socket (udp): %d", errno);
+		LOG_ERR("Failed to bind UDP socket (udp): %d", errno);
 		return -errno;
 	}
 

@@ -50,6 +50,14 @@ int bootloader_active_slot(uint8_t* slot)
 	return 0;
 }
 
+static int enable_stm32_backup_domain()
+{
+	extern void stm32_backup_domain_enable_access(void);
+	stm32_backup_domain_enable_access();
+	return 0;
+}
+SYS_INIT(enable_stm32_backup_domain, POST_KERNEL, 99);
+
 #else
 
 int bootloader_active_slot(uint8_t* slot) { return -ENOTSUP; }

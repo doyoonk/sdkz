@@ -7,11 +7,6 @@
 #include "stm32n6570_dk_app_common.dtsi"
 
 / {
-	chosen {
-		zephyr,sram = &axisramb;
-		mcuboot,image-ram = &axisrama;
-	};
-
 	aliases {
 		mcuboot-led0 = &green_led_1;
 		mcuboot-button0 = &user_button;

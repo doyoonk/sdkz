@@ -74,8 +74,8 @@
 #define MICROPY_PY_MICROPYTHON_MEM_INFO (1)
 #define MICROPY_PY_MACHINE          (1)
 #define MICROPY_PY_MACHINE_INCLUDEFILE "ports/zephyr/modmachine.c"
-#define MICROPY_PY_MACHINE_I2C      (1)
-#define MICROPY_PY_MACHINE_I2C_TRANSFER_WRITE1 (1)
+#define MICROPY_PY_MACHINE_I2C      (0)
+#define MICROPY_PY_MACHINE_I2C_TRANSFER_WRITE1 (0)
 #ifdef CONFIG_I2C_TARGET
 #define MICROPY_PY_MACHINE_I2C_TARGET (1)
 #define MICROPY_PY_MACHINE_I2C_TARGET_INCLUDEFILE "ports/zephyr/machine_i2c_target.c"
@@ -94,8 +94,10 @@
 #define MICROPY_PY_MACHINE_WDT      (1)
 #define MICROPY_PY_MACHINE_WDT_INCLUDEFILE  "ports/zephyr/machine_wdt.c"
 #endif
+#ifdef CONFIG_PWM
 #define MICROPY_PY_MACHINE_PWM      (1)
 #define MICROPY_PY_MACHINE_PWM_INCLUDEFILE "ports/zephyr/machine_pwm.c"
+#endif
 #if defined(CONFIG_NETWORKING) || defined(CONFIG_FILE_SYSTEM)
 #define MICROPY_PY_ERRNO            (1)
 #endif

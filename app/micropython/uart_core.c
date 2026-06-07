@@ -99,7 +99,7 @@ mp_uint_t mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
     }
     #else
     static const struct device *uart_console_dev =
-        DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+        DEVICE_DT_GET(DT_CHOSEN(micropy_console));
 
     while (len--) {
         uart_poll_out(uart_console_dev, *str++);
@@ -116,7 +116,7 @@ int mp_console_init(void) {
     const struct device *uart_dev;
     int ret;
 
-    uart_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+    uart_dev = DEVICE_DT_GET(DT_CHOSEN(micropy_console));
     if (!device_is_ready(uart_dev)) {
         return -ENODEV;
     }
