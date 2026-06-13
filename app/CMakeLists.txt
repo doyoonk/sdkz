@@ -47,6 +47,8 @@ if (CONFIG_MICROPY_FROZEN_MODULES)
     set(MICROPY_FROZEN_MANIFEST ${CONFIG_MICROPY_FROZEN_MANIFEST})
 endif()
 
+dt_chosen(has_port PROPERTY "micropy,console")
+
 set(MICROPY_SOURCE_PORT
     main.c
     help.c
@@ -59,12 +61,16 @@ set(MICROPY_SOURCE_PORT
     modzephyr.c
     modzsensor.c
     mphalport.c
-    uart_core.c
     zephyr_device.c
     zephyr_storage.c
     zephyr_filesystem.c
     mpthreadport.c
 )
+if (CONFIG_CONSOLE_SUBSYS AND (DEFINED has_port))
+    list(APPEND MICROPY_SOURCE_PORT main.c uart_core.c)
+else()
+    list(APPEND MICROPY_SOURCE_PORT shellcmd.c)
+endif()
 list(TRANSFORM MICROPY_SOURCE_PORT PREPEND ${MICROPY_PORT_DIR}/)
 
 set(MICROPY_SOURCE_SHARED

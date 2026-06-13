@@ -60,6 +60,10 @@ SYS_INIT(enable_stm32_backup_domain, POST_KERNEL, 99);
 
 #else
 
-int bootloader_active_slot(uint8_t* slot) { return -ENOTSUP; }
+int bootloader_active_slot(uint8_t* slot)
+{
+	LOG_ERR("net support to get bootloader active slot");
+	return -ENOTSUP;
+}
 
 #endif

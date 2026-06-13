@@ -49,9 +49,17 @@
 	status = "okay";
 };
 
+&clk_lse {
+	status = "okay";
+};
+
+&clk_lsi {
+	status = "disabled";
+};
+
 &rtc {
 	clocks = <&rcc STM32_CLOCK(APB4, 16U)>,
-		<&rcc STM32_SRC_LSE RTC_SEL(1)>;
+		 <&rcc STM32_SRC_LSE RTC_SEL(1)>;
 	status = "okay";
 
 	bbram: backup_regs {
@@ -86,10 +94,6 @@
 	cdc_acm_uart1: cdc_acm_uart1 {
 		compatible = "zephyr,cdc-acm-uart";
 		label = "Zephyr USB CDC-ACM1";
-	};
-	cdc_acm_uart2: cdc_acm_uart2 {
-		compatible = "zephyr,cdc-acm-uart";
-		label = "Zephyr USB CDC-ACM2";
 	};
 };
 
@@ -130,4 +134,9 @@
 			reg = <0x00400000 DT_SIZE_M(1)>;
 		};
 	};
+};
+
+&mac {
+	/delete-property/ nvmem-cells;
+	/delete-property/ nvmem-cell-names;
 };

@@ -53,7 +53,7 @@ static const struct pwm_dt_spec pwm_led = PWM_DT_SPEC_GET(DT_ALIAS(pwm_led0));
 	 */
 	pwm_get_cycles_per_sec(pwm_led.dev, 1, &cycle_per_sec);
 
-	LOG_INF("%s Cycles per sec %lld, Calibrating for channel %d period %d..."
+	LOG_INF("%s Cycles per sec %lld, Calibrating for channel %d period %d"
 		, pwm_led.dev->name, cycle_per_sec, pwm_led.channel, pwm_led.period);
 
 	max_period = pwm_led.period;

@@ -191,7 +191,7 @@ static int get_date_time(const struct device *rtc)
 
 int main(void)
 {
-	uint8_t partition_id;
+	uint8_t partition_id = 0xff;
 	int rc;
 
 	LOG_INF("Zephyr Example Application %s/0x%08x, %s, %s", APP_VERSION_STRING, APPVERSION, __DATE__ " " __TIME__, KERNEL_VERSION_EXTENDED_STRING);
@@ -224,7 +224,7 @@ int main(void)
 	init_app();
 
 	rc = bootloader_active_slot((uint8_t*)&partition_id);
-	if (rc == 0) {
+	if (rc != 0) {
 		LOG_ERR("ERROR: blinfo/running_slot");
 	} else {
 		LOG_INF("blinfo/running_slot %d", partition_id);
