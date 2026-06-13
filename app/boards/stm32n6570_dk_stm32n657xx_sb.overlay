@@ -1,0 +1,7 @@
+/*
+ * Copyright (c) 2025 HU Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "stm32n6570_dk_app_common.dtsi"
