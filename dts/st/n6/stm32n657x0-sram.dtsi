@@ -13,72 +13,86 @@
 
 / {
 	soc {
-		ramcfg_sram1_ahb: ramcfg@42023300 {
-			compatible = "st,stm32n6-ramcfg";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		peripherals: peripherals@40000000 {
 			#address-cells = <1>;
 			#size-cells = <1>;
-			reg = <0x42023300 0x80>;
-			clocks = <&rcc STM32_CLOCK(MEM, 4)>, <&rcc STM32_CLOCK(AHB2, 12)>;
-			clock-names = "axisram", "ramcfg";
+			reg = <0x40000000 0x20000000>;
+			/* Default use the secure addresses range */
+			ranges = <0x0 0x50000000 0x10000000>;
+			ramcfg_sram1_ahb: ramcfg@2023300 {
+				compatible = "st,stm32n6-ramcfg";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				reg = <0x2023300 0x80>;
+				clocks = <&rcc STM32_CLOCK(MEM, 4)>, <&rcc STM32_CLOCK(AHB2, 12)>;
+				clock-names = "axisram", "ramcfg";
+				ranges = <0x0 0x38000000 DT_SIZE_K(16)>;
 
-			ahbsram1: memory@38000000 {
-				compatible = "zephyr,memory-region", "mmio-sram";
-				zephyr,memory-region = "AHBSRAM1";
-				zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
-				reg = <0x38000000 DT_SIZE_K(16)>;
-				status = "disabled";
+				ahbsram1: memory@0 {
+					compatible = "zephyr,memory-region", "mmio-sram";
+					zephyr,memory-region = "AHBSRAM1";
+					zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+					reg = <0x0 DT_SIZE_K(16)>;
+					status = "disabled";
+				};
 			};
-		};
-		ramcfg_sram2_ahb: ramcfg@42023380 {
-			compatible = "st,stm32n6-ramcfg";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			reg = <0x42023380 0x80>;
-			clocks = <&rcc STM32_CLOCK(MEM, 5)>, <&rcc STM32_CLOCK(AHB2, 12)>;
-			clock-names = "axisram", "ramcfg";
+			ramcfg_sram2_ahb: ramcfg@2023380 {
+				compatible = "st,stm32n6-ramcfg";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				reg = <0x2023380 0x80>;
+				clocks = <&rcc STM32_CLOCK(MEM, 5)>, <&rcc STM32_CLOCK(AHB2, 12)>;
+				clock-names = "axisram", "ramcfg";
+				ranges = <0x0 0x38004000 DT_SIZE_K(16)>;
 
-			ahbsram2: memory@38004000 {
-				compatible = "zephyr,memory-region", "mmio-sram";
-				zephyr,memory-region = "AHBSRAM2";
-				zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
-				reg = <0x38004000 DT_SIZE_K(16)>;
-				status = "disabled";
+				ahbsram2: memory@0 {
+					compatible = "zephyr,memory-region", "mmio-sram";
+					zephyr,memory-region = "AHBSRAM2";
+					zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+					reg = <0x0 DT_SIZE_K(16)>;
+					status = "disabled";
+				};
 			};
-		};
-		ramcfg_venc_ram: ramcfg@42023400 {
-			compatible = "st,stm32n6-ramcfg";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			reg = <0x42023400 0x80>;
-			clocks = <&rcc STM32_CLOCK(MEM, 11)>, <&rcc STM32_CLOCK(APB5, 5)>;
-			clock-names = "axisram", "ramcfg";
+			ramcfg_venc_ram: ramcfg@2023400 {
+				compatible = "st,stm32n6-ramcfg";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				reg = <0x2023400 0x80>;
+				clocks = <&rcc STM32_CLOCK(MEM, 11)>, <&rcc STM32_CLOCK(APB5, 5)>;
+				clock-names = "axisram", "ramcfg";
+				ranges = <0x0 0x34400000 DT_SIZE_K(128)>;
 
-			venc_ram: memory@34400000 {
-				compatible = "zephyr,memory-region", "mmio-sram";
-				zephyr,memory-region = "VENCRAM";
-				zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
-				reg = <0x34400000 DT_SIZE_K(128)>;
-				status = "disabled";
+				venc_ram: memory@0 {
+					compatible = "zephyr,memory-region", "mmio-sram";
+					zephyr,memory-region = "VENCRAM";
+					zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+					reg = <0x0 DT_SIZE_K(128)>;
+					status = "disabled";
+				};
 			};
-		};
-		ramcfg_bkpsram: ramcfg@42023480 {
-			compatible = "st,stm32n6-ramcfg";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			reg = <0x42023480 0x80>;
-			clocks = <&rcc STM32_CLOCK(MEM, 6)>, <&rcc STM32_CLOCK(AHB2, 12)>;
-			clock-names = "axisram", "ramcfg";
+			ramcfg_bkpsram: ramcfg@2023480 {
+				compatible = "st,stm32n6-ramcfg", "hu,stm32_bkdomain";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				reg = <0x2023480 0x80>;
+				clocks = <&rcc STM32_CLOCK(MEM, 6)>, <&rcc STM32_CLOCK(AHB2, 12)>;
+				clock-names = "axisram", "ramcfg";
+				ranges = <0x0 0x3c000000 DT_SIZE_K(8)>;
 
-			backup_sram: memory@3c000000 {
-				compatible = "zephyr,memory-region", "mmio-sram";
-				zephyr,memory-region = "BKPSRAM";
-				zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
-				reg = <0x3c000000 DT_SIZE_K(8)>;
-				status = "disabled";
+				backup_sram: memory@0 {
+					compatible = "zephyr,memory-region", "mmio-sram";
+					zephyr,memory-region = "BKPSRAM";
+					zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+					reg = <0x0 DT_SIZE_K(8)>;
+					status = "disabled";
+				};
 			};
 		};
 	};
-	
+
 	itcm: memory@10000000 {
 		compatible = "zephyr,memory-region", "arm,itcm";
 		reg = <0x10000000 DT_SIZE_K(64)>;

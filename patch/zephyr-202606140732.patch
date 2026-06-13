@@ -1,0 +1,29 @@
+diff --git a/drivers/ethernet/eth_stm32_hal_v2.c b/drivers/ethernet/eth_stm32_hal_v2.c
+index 40759c27fbc..2069353466b 100644
+--- a/drivers/ethernet/eth_stm32_hal_v2.c
++++ b/drivers/ethernet/eth_stm32_hal_v2.c
+@@ -670,7 +670,7 @@ void eth_stm32_set_mac_config(const struct device *dev, struct phy_link_state *s
+ 	mac_config.Speed =
+ 		IF_ENABLED(DT_HAS_COMPAT_STATUS_OKAY(st_stm32n6_ethernet),
+ 			PHY_LINK_IS_SPEED_1000M(state->speed) ? ETH_SPEED_1000M :)
+-		PHY_LINK_IS_SPEED_100M(state->speed) ? ETH_SPEED_100M : ETH_SPEED_10M;
++		PHY_LINK_IS_SPEED_100M(state->speed) ? (ETH_SPEED_100M | ETH_MACCR_PS) : (ETH_SPEED_10M | ETH_MACCR_PS);
+ 
+ #if DT_HAS_COMPAT_STATUS_OKAY(st_stm32n6_ethernet)
+ 	mac_config.PortSelect = PHY_LINK_IS_SPEED_1000M(state->speed) ? DISABLE : ENABLE;
+diff --git a/drivers/misc/stm32n6_axisram/stm32n6_axisram.c b/drivers/misc/stm32n6_axisram/stm32n6_axisram.c
+index 93517b24d0f..dfebede31d3 100644
+--- a/drivers/misc/stm32n6_axisram/stm32n6_axisram.c
++++ b/drivers/misc/stm32n6_axisram/stm32n6_axisram.c
+@@ -43,6 +43,11 @@ static int axisram_stm32_init(const struct device *dev)
+ 	ramcfg.Instance = cfg->base;
+ 	HAL_RAMCFG_EnableAXISRAM(&ramcfg);
+ 
++#if DT_HAS_COMPAT_STATUS_OKAY(hu_stm32_bkdomain)
++	extern void stm32_backup_domain_enable_access(void);
++	stm32_backup_domain_enable_access();
++#endif
++
+ 	return 0;
+ }
+ 

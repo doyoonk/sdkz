@@ -212,9 +212,6 @@ int main(void)
 
 	LOG_INF("Zephyr Example Application %s/0x%08x, %s, %s", APP_VERSION_STRING, APPVERSION, __DATE__ " " __TIME__, KERNEL_VERSION_EXTENDED_STRING);
 
-	extern void stm32_backup_domain_enable_access(void);
-	stm32_backup_domain_enable_access();
-
 #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_itcm))
 	LOG_INF("itcm size %d(0x%08x)"
 		, DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)), DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)));
