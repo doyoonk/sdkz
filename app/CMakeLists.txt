@@ -185,6 +185,7 @@ endif()
 endif()
 
 target_sources(app PRIVATE
+    src/camera.c
     src/hup_server.c
     src/main.c
     src/pwmleds.c

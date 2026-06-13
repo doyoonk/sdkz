@@ -38,7 +38,9 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 #include <hu/hupacket.h>
 #include <hu/palloc.h>
 
+#if CONFIG_HU_APP
 #include <net_sample_common.h>
+#endif
 #include <soc.h>
 
 #include <time.h>
@@ -55,6 +57,7 @@ struct app_data app =
 	.hup_udp = NULL,
 };
 
+#if CONFIG_HU_APP
 #if CONFIG_NET_L2_ETHERNET
 static struct z_thread_stack_element app_stack_sect
 	__aligned(Z_KERNEL_STACK_OBJ_ALIGN)
@@ -77,10 +80,15 @@ static struct backup_store __stm32_backup_sram_section backup;
 #undef MAGIC_VALUE
 #endif
 #endif
+#endif
 
 #if DT_HAS_ALIAS(rtc)
 static const struct device *const rtc = DEVICE_DT_GET(DT_ALIAS(rtc));
 #endif
+
+#define SLEEP_TIME_MS   1000
+#define LED0_NODE DT_ALIAS(led0)
+static const struct gpio_dt_spec _led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
 
 #if CONFIG_NET_CONNECTION_MANAGER
 #define EVENT_MASK (NET_EVENT_L4_CONNECTED | NET_EVENT_L4_DISCONNECTED)
@@ -113,6 +121,7 @@ static void event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt_even
 
 static int init_app(void)
 {
+#if CONFIG_HU_APP
 #if CONFIG_NET_IPV4
 	struct net_if* iface = net_if_get_default();
 	if (net_if_flag_is_set(iface, NET_IF_IPV4)) {
@@ -128,15 +137,21 @@ static int init_app(void)
 	init_bbram();
 
 	return init_app_usb();
+#else
+	return 0;
+#endif
 }
 
 static void deinit_app()
 {
+#if CONFIG_HU_APP
 	deinit_hup_server(app.hup_uart, &uart_interrupt);
 	deinit_hup_server(app.hup_udp, &udp_server);
-
+#endif
+#if CONFIG_HU_APP
 #if CONFIG_NET_CONNECTION_MANAGER
 	net_mgmt_del_event_callback(&app.mgmt_cb);
+#endif
 #endif
 }
 
@@ -192,9 +207,13 @@ static int get_date_time(const struct device *rtc)
 int main(void)
 {
 	uint8_t partition_id = 0xff;
+	int led_state = 1;
 	int rc;
 
 	LOG_INF("Zephyr Example Application %s/0x%08x, %s, %s", APP_VERSION_STRING, APPVERSION, __DATE__ " " __TIME__, KERNEL_VERSION_EXTENDED_STRING);
+
+	extern void stm32_backup_domain_enable_access(void);
+	stm32_backup_domain_enable_access();
 
 #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_itcm))
 	LOG_INF("itcm size %d(0x%08x)"
@@ -216,20 +235,23 @@ int main(void)
 		, &__dtcm_end
 		, (size_t)&__dtcm_end + (DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm))
 		- ((size_t)&__dtcm_end - (size_t)&__dtcm_start)));
-#endif
 	palloc_init(&__dtcm_end, (void*)((size_t)&__dtcm_end + DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm))
 		- ((size_t)&__dtcm_end - (size_t)&__dtcm_start)));
+#endif
 #endif
 
 	init_app();
 
+#if CONFIG_HU_APP
 	rc = bootloader_active_slot((uint8_t*)&partition_id);
 	if (rc != 0) {
 		LOG_ERR("ERROR: blinfo/running_slot");
 	} else {
 		LOG_INF("blinfo/running_slot %d", partition_id);
 	}
+#endif
 
+#if CONFIG_HU_APP
 #if CONFIG_NET_L2_ETHERNET
 	LOG_INF("hu packet server start for UDP port %d", MY_PORT);
 	app.hup_udp = init_hup_server(&udp_server, "hup_udp"
@@ -247,6 +269,7 @@ int main(void)
 	set_date_time(rtc);
 #endif
 	get_date_time(rtc);
+#endif
 #endif
 
 #ifdef BACKUP_DEV_COMPAT
@@ -266,14 +289,37 @@ int main(void)
 		}
 	}
 #endif
+	if (!gpio_is_ready_dt(&_led)) {
+		led_state = -1;
+	} else {
+		rc = gpio_pin_configure_dt(&_led, GPIO_OUTPUT_ACTIVE);
+		if (rc < 0) {
+			led_state = -1;
+		}
+	}
+
 	while (1) {
-		k_sleep(K_MSEC(1000));
+		if (led_state != -1) {
+			rc = gpio_pin_toggle_dt(&_led);
+			if (rc < 0) {
+				led_state = -1;
+			} else {
+				led_state = !led_state;
+				if (led_state)
+					k_sleep(K_MSEC(SLEEP_TIME_MS / 10));
+				else
+					k_sleep(K_MSEC(SLEEP_TIME_MS - 100));
+			}
+		} else {
+			k_sleep(K_FOREVER);
+		}
 	}
 
 	deinit_app();
 	return 0;
 }
 
+#if CONFIG_HU_PACKET
 static void _ver(void* h, int argc, const char** argv)
 {
 	hupacket_ack_response(h, NULL);
@@ -304,3 +350,4 @@ static void _reboot(void*h, int argc, const char** argv)
 	}
 }
 DEFINE_HUP_CMD(hup_cmd_reboot, "reboot", _reboot);
+#endif

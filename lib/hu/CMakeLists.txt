@@ -7,10 +7,10 @@
 zephyr_library()
 
 zephyr_library_sources_ifdef(CONFIG_HU_PACKET
-    hupacket.c
-    huflash.c
-    ascii85.c
-    palloc.c
+  hupacket.c
+  huflash.c
+  ascii85.c
+  palloc.c
 )
 
 zephyr_library_sources_ifdef(CONFIG_RETENTION_BOOTLOADER_INFO bootloader.c)

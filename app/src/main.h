@@ -15,7 +15,7 @@
 #include <stdbool.h>
 
 #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_dtcm))
-#define app_stack_sect __dtcm_bss_section
+#define app_stack_sect __kstackmem  //__dtcm_bss_section
 #else
 #define app_stack_sect __kstackmem
 #endif

@@ -21,6 +21,7 @@
 #include <huerrno.h>
 #include <stdio.h>
 
+#if CONFIG_HU_APP
 LOG_MODULE_REGISTER(hup_server, CONFIG_LOG_DEFAULT_LEVEL);
 
 struct handle
@@ -119,3 +120,4 @@ void deinit_hup_server(void *handle, const struct app_api* api)
 
 	pfree(handle);
 }
+#endif
