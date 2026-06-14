@@ -24,21 +24,6 @@
 		input-gpios = <&gpioa 6 GPIO_ACTIVE_HIGH>;
 	};
 
-	fstab {
-		compatible = "zephyr,fstab";
-		lfs: lfs {
-			compatible = "zephyr,fstab,littlefs";
-			read-size=<256>;
-			prog-size=<256>;
-			cache-size=<4096>;
-			lookahead-size=<256>;
-			block-cycles=<512>;
-			partition = <&lfs0_partition>;
-			mount-point = "/flash";
-			automount;
-		};
-	};
-
 	blink_led: blink-led {
 		compatible = "blink-gpio-led";
 		led-gpios = <&gpioo 1 GPIO_ACTIVE_HIGH>;
@@ -132,18 +117,5 @@
 		status = "okay";
 		pinctrl-0 = <&tim1_ch1_pe9 &tim1_ch1n_pg10>;
 		pinctrl-names = "default";
-	};
-};
-
-&ext_flash {
-	partitions {
-		compatible = "fixed-partitions";
-		#address-cells = <1>;
-		#size-cells = <1>;
-
-		lfs0_partition: partition@1000000 {
-			label = "littlefs";
-			reg = <0x01000000 DT_SIZE_M(112)>;
-		};
 	};
 };

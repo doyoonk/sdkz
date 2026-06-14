@@ -38,6 +38,22 @@
 			};
 		};
 	};
+
+	fstab {
+		compatible = "zephyr,fstab";
+		lfs: lfs {
+			compatible = "zephyr,fstab,littlefs";
+			read-size=<256>;
+			prog-size=<256>;
+			cache-size=<4096>;
+			lookahead-size=<256>;
+			block-cycles=<512>;
+			partition = <&lfs0_partition>;
+			mount-point = "/flash";
+			automount;
+		};
+	};
+
 	aliases {
 		rtc = &rtc;
 		bbram = &bbram;
@@ -132,6 +148,11 @@
 		storage_partition: partition@400000 {
 			label = "storage";
 			reg = <0x00400000 DT_SIZE_M(1)>;
+		};
+		
+		lfs0_partition: partition@1000000 {
+			label = "littlefs";
+			reg = <0x01000000 DT_SIZE_M(112)>;
 		};
 	};
 };
