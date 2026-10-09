@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+#include <zephyr/dt-bindings/clock/stm32n6_clock.h>
+
+/ {
+	die_temp: temperature-sensor@5600a000 {
+		compatible = "st,stm32n6-dts";
+		reg = <0x5600a000 0x400>;
+		clocks = <&rcc STM32_CLOCK(APB4_2, 2)>;
+		status = "disabled";
+	};
+};

@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  STM32N6 digital temperature sensor controller. One device exposes one
+  selected sensing element through SENSOR_CHAN_DIE_TEMP. The controller
+  must have a single owner; do not create separate nodes for its sensors.
+  The fixed HSI / 8 kernel clock must be available. Polling is used, so
+  an interrupt is not required.
+
+compatible: "st,stm32n6-dts"
+
+include: [sensor-device.yaml, base.yaml]
+
+properties:
+  reg:
+    required: true
+  clocks:
+    required: true
+  sensor-id:
+    type: int
+    default: 0
+    enum: [0, 1]
+    description: Sensing element to read; defaults to sensor 0.

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+
+tests:
+  drivers.sensor.stm32n6_dts:
+    tags:
+      - drivers
+      - sensor
+    platform_allow:
+      - stm32n6570_dk/stm32n657xx
+    integration_platforms:
+      - stm32n6570_dk/stm32n657xx
+    harness: ztest

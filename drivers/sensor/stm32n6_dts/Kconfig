@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+
+config STM32N6_DTS
+	bool "STM32N6 digital die temperature sensor"
+	default y
+	depends on SOC_SERIES_STM32N6X
+	depends on DT_HAS_ST_STM32N6_DTS_ENABLED
+	select USE_STM32_HAL_DTS
+	help
+	  Read one STM32N6 DTS sensor using the sensor API. Measurements use
+	  12-bit single conversion with polling. The HSI clock must be enabled.
+
+config STM32N6_DTS_TIMEOUT_MS
+	int "STM32N6 DTS conversion timeout (ms)"
+	depends on STM32N6_DTS
+	range 1 1000
+	default 100
+	help
+	  Maximum wait for a temperature conversion to complete.

@@ -1,0 +1,17 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+#include <st/n6/stm32n6-dts.dtsi>
+
+/ {
+	aliases {
+		die-temp0 = &die_temp;
+	};
+};
+
+&die_temp {
+	status = "okay";
+};
+
+&axisram12 {
+	ranges = <0x34000000 0x24000000 DT_SIZE_K(2048)>;
+};
