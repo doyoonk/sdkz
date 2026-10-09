@@ -14,7 +14,25 @@
 
 /delete-node/ &red_led_2;
 
+/* The PSRAM driver registers all of &psram as SMH_REG_ATTR_EXTERNAL.
+ * Reserve the last 2 MiB for static display buffers, excluding the final
+ * cache line required by STM32N6 erratum ES0620, section 2.4.5.
+ */
+&psram {
+	reg = <0x90000000 DT_SIZE_M(30)>;
+};
+
+&ltdc {
+	ext-sdram = <&display_ram>;
+};
+
 / {
+	display_ram: memory@91e00000 {
+		compatible = "zephyr,memory-region";
+		reg = <0x91e00000 (DT_SIZE_M(2) - 32)>;
+		zephyr,memory-region = "PSRAM_DISPLAY";
+		zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+	};
 
 	chosen {
 		zephyr,dtcm = &dtcm;

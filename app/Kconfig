@@ -77,6 +77,43 @@ config VIDEO_HFLIP
 	bool "Horizontal flip"
 	default n
 
+config APP_CAMERA_CAPTURE
+	bool "HU camera snapshot transfer"
+	depends on VIDEO && HU_PACKET
+	help
+	  Keep one native-format snapshot for chunked transfer to a PC over HU.
+	  Reserves APP_CAMERA_FRAME_CAPACITY bytes for an unmodified snapshot.
+	  Uses the video shared heap when enabled, otherwise the video memory
+	  region or application RAM.
+
+config APP_CAMERA_FRAME_CAPACITY
+	int "Maximum bytes per camera frame"
+	default 4194304 if SOC_SERIES_STM32N6X
+	default 153600
+	range 32 33554400
+	help
+	  Capacity of each DMA buffer and the snapshot buffer. Runtime formats
+	  must fit this limit as well as the maximum width and height.
+
+config APP_CAMERA_PIXEL_FORMAT
+	string "Camera output pixel format"
+	default "RGBP"
+	help
+	  Initial Zephyr FourCC (RGBP is RGB565). Any format advertised by the
+	  camera driver can be selected using HU cam_config at runtime.
+
+config APP_CAMERA_MAX_WIDTH
+	int "Maximum runtime camera width"
+	default 1920 if SOC_SERIES_STM32N6X
+	default VIDEO_WIDTH
+	range 1 4094
+
+config APP_CAMERA_MAX_HEIGHT
+	int "Maximum runtime camera height"
+	default 1080 if SOC_SERIES_STM32N6X
+	default VIDEO_HEIGHT
+	range 1 4094
+
 config VIDEO_VFLIP
 	bool "Vertical flip"
 	default n

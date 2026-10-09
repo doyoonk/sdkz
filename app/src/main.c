@@ -48,8 +48,8 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 #include <limits.h>
 
 #define MY_PORT     				4241
-#define HUP_UDP_THREAD_STACK_SIZE	(1024 - 128)
-#define HUP_UART_THREAD_STACK_SIZE	(1024 - 512)
+#define HUP_UDP_THREAD_STACK_SIZE	2048
+#define HUP_UART_THREAD_STACK_SIZE	2048
 
 struct app_data app =
 {
