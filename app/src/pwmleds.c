@@ -39,7 +39,8 @@ static const struct pwm_dt_spec pwm_led = PWM_DT_SPEC_GET(DT_ALIAS(pwm_led0));
 
 	LOG_INF("PWM-based blinky");
 
-	if (!pwm_is_ready_dt(&pwm_led)) {
+	if (!pwm_is_ready_dt(&pwm_led))
+	{
 		LOG_ERR("Error: PWM device %s is not ready", pwm_led.dev->name);
 		return;
 	}
@@ -57,9 +58,11 @@ static const struct pwm_dt_spec pwm_led = PWM_DT_SPEC_GET(DT_ALIAS(pwm_led0));
 		, pwm_led.dev->name, cycle_per_sec, pwm_led.channel, pwm_led.period);
 
 	max_period = pwm_led.period;
-	while (pwm_set_dt(&pwm_led, max_period, max_period / 2U)) {
+	while (pwm_set_dt(&pwm_led, max_period, max_period / 2U))
+	{
 		max_period /= 2U;
-		if (max_period < (4U * (pwm_led.period / MIN_SCALE))) {
+		if (max_period < (4U * (pwm_led.period / MIN_SCALE)))
+		{
 			LOG_ERR("Error: PWM device does not support a period at least %u", 4U * (pwm_led.period / MIN_SCALE));
 			return;
 		}
