@@ -54,6 +54,12 @@ manifest:
       revision: main
       path: etc
 
+    - name: zephyr-stm32-mw-isp
+      url: https://github.com/stm32-hotspot/zephyr-stm32-mw-isp.git
+      revision: c0feac57fac8d55a2d2206aea705e785afbd90fe
+      path: modules/lib/zephyr-stm32-mw-isp
+      submodules: true
+
     - name: s2opc
       groups:
         - s2opc
