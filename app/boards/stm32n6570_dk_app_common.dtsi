@@ -11,7 +11,8 @@
 		zephyr,bootloader-info = &boot_info0;
 	};
 	backup_sram_retained@3c001c00 {
-		compatible = "zephyr,memory-region", "mmio-sram";
+		//compatible = "zephyr,memory-region", "mmio-sram";
+		compatible = "zephyr,memory-region", "st,stm32-backup-sram";
 		reg = <0x3c001c00 DT_SIZE_K(1)>;
 		zephyr,memory-region = "RetainedMem";
 		status = "okay";
@@ -73,6 +74,13 @@
 	status = "disabled";
 };
 
+/* Use a dedicated 200 MHz kernel clock for XSPI2 in both MCUboot and the app. */
+&ic3 {
+	pll-src = <1>;
+	ic-div = <12>;
+	status = "okay";
+};
+
 &rtc {
 	clocks = <&rcc STM32_CLOCK(APB4, 16U)>,
 		 <&rcc STM32_SRC_LSE RTC_SEL(1)>;
@@ -91,15 +99,36 @@
 };
 
 &axisram12 {
-	ranges = <0x0 0x24000000 DT_SIZE_K(3840)>;
-	memory@0 {
-		reg = <0x0 (DT_SIZE_K(400) + DT_SIZE_K(624) + DT_SIZE_M(1)
-			+ DT_SIZE_K(448)
-			+ DT_SIZE_K(448)
-			+ DT_SIZE_K(448)
-			+ DT_SIZE_K(448)
-		)>;
-	};
+	/* Map AXISRAM child addresses to the 0x24000000 CPU alias. */
+	ranges = <0x34000000 0x24000000 DT_SIZE_K(3840)>;
+};
+
+&axisram1 {
+	reg = <0x34000000 DT_SIZE_K(3840)>;
+};
+
+&axisram3 {
+	status = "okay";
+};
+
+&axisram4 {
+	status = "okay";
+};
+
+&axisram5 {
+	status = "okay";
+};
+
+&axisram6 {
+	status = "okay";
+};
+
+&itcm {
+	status = "okay";
+};
+
+&dtcm {
+	status = "okay";
 };
 
 &zephyr_udc0 {
@@ -115,6 +144,11 @@
 
 &xspim {
     status = "okay";
+};
+
+&xspi2 {
+	clocks = <&rcc STM32_CLOCK(AHB5, 12)>,
+		 <&rcc STM32_SRC_IC3 XSPI2_SEL(2)>;
 };
 
 &crc {
@@ -149,7 +183,7 @@
 			label = "storage";
 			reg = <0x00400000 DT_SIZE_M(1)>;
 		};
-		
+
 		lfs0_partition: partition@1000000 {
 			label = "littlefs";
 			reg = <0x01000000 DT_SIZE_M(112)>;

@@ -73,23 +73,6 @@
 					status = "disabled";
 				};
 			};
-			ramcfg_bkpsram: ramcfg@2023480 {
-				compatible = "st,stm32n6-ramcfg", "hu,stm32_bkdomain";
-				#address-cells = <1>;
-				#size-cells = <1>;
-				reg = <0x2023480 0x80>;
-				clocks = <&rcc STM32_CLOCK(MEM, 6)>, <&rcc STM32_CLOCK(AHB2, 12)>;
-				clock-names = "axisram", "ramcfg";
-				ranges = <0x0 0x3c000000 DT_SIZE_K(8)>;
-
-				backup_sram: memory@0 {
-					compatible = "zephyr,memory-region", "mmio-sram";
-					zephyr,memory-region = "BKPSRAM";
-					zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
-					reg = <0x0 DT_SIZE_K(8)>;
-					status = "disabled";
-				};
-			};
 		};
 	};
 

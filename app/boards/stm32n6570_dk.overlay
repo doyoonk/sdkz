@@ -84,30 +84,6 @@
         status = "disabled";
 };
 
-&axisram3 {
-	status = "okay";
-};
-
-&axisram4 {
-	status = "okay";
-};
-
-&axisram5 {
-	status = "okay";
-};
-
-&axisram6 {
-	status = "okay";
-};
-
-&itcm {
-	status = "okay";
-};
-
-&dtcm {
-	status = "okay";
-};
-
 &timers1 {
 	status = "okay";
 	st,countermode = <0x10>; /* downcounter */

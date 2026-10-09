@@ -1,0 +1,18 @@
+diff --git a/soc/st/stm32/common/Kconfig b/soc/st/stm32/common/Kconfig
+index dc0d1d035ed..888ca4c464a 100644
+--- a/soc/st/stm32/common/Kconfig
++++ b/soc/st/stm32/common/Kconfig
+@@ -84,11 +84,11 @@ config STM32_IOCELL_CHECK_ENABLE
+ config STM32_XSPIM
+ 	bool "STM32 XSPI Manager"
+ 	select USE_STM32_HAL_XSPI
+-	depends on !STM32_APP_IN_EXT_FLASH
++	depends on !(STM32_APP_IN_EXT_FLASH && XIP)
+ 	default y if DT_HAS_ST_STM32_XSPIM_ENABLED
+ 	help
+ 	  Enables support for XSPI Manager. Shouldn't be used by applications
+-	  running from external flash as it reinitializes the serial bus controllers.
++	  executing in place from external flash as it reinitializes the serial bus controllers.
+ 
+ if STM32_XSPIM
+ 

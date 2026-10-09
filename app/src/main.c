@@ -71,7 +71,7 @@ static struct z_thread_stack_element app_stack_sect
 #define MAGIC_VALUE 0xA500FF5A
 #if CONFIG_SOC_SERIES_STM32N6X && DT_NODE_HAS_STATUS(DT_NODELABEL(backup_sram), okay)
 /** Value stored in backup SRAM. */
-struct backup_store __attribute__((section(STRINGIFY(BKPSRAM)))) backup;
+struct backup_store __stm32_backup_sram_section backup;
 #elif DT_HAS_COMPAT_STATUS_OKAY(st_stm32_backup_sram)
 #define BACKUP_DEV_COMPAT st_stm32_backup_sram
 /** Value stored in backup SRAM. */
