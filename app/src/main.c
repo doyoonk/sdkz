@@ -44,6 +44,8 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 #include <soc.h>
 
 #include <time.h>
+#include <errno.h>
+#include <limits.h>
 
 #define MY_PORT     				4241
 #define HUP_UDP_THREAD_STACK_SIZE	(1024 - 128)
@@ -52,6 +54,8 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 struct app_data app =
 {
 	.connected = false,
+	.die_temp_status = -EAGAIN,
+	.vbat_status = -EAGAIN,
 
 	.hup_uart = NULL,
 	.hup_udp = NULL,
@@ -87,8 +91,89 @@ static const struct device *const rtc = DEVICE_DT_GET(DT_ALIAS(rtc));
 #endif
 
 #define SLEEP_TIME_MS   1000
+#define SENSOR_PERIOD_MS 1000
 #define LED0_NODE DT_ALIAS(led0)
 static const struct gpio_dt_spec _led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+static struct k_spinlock die_temp_lock;
+static struct k_spinlock vbat_lock;
+
+static void update_die_temp(void)
+{
+	int rc = -ENOTSUP;
+	int32_t temperature_mc = 0;
+	int previous_status;
+
+#if defined(CONFIG_SENSOR) && DT_NODE_HAS_STATUS(DT_ALIAS(die_temp0), okay)
+	const struct device *dev = DEVICE_DT_GET(DT_ALIAS(die_temp0));
+	struct sensor_value temperature;
+
+	if (!device_is_ready(dev)) {
+		rc = -ENODEV;
+	} else {
+		rc = sensor_sample_fetch_chan(dev, SENSOR_CHAN_DIE_TEMP);
+		if (rc == 0) {
+			rc = sensor_channel_get(dev, SENSOR_CHAN_DIE_TEMP, &temperature);
+		}
+		if (rc == 0) {
+			temperature_mc = (int32_t)sensor_value_to_milli(&temperature);
+		}
+	}
+#endif
+
+	int64_t now = k_uptime_get();
+	k_spinlock_key_t key = k_spin_lock(&die_temp_lock);
+
+	previous_status = app.die_temp_status;
+	app.die_temp_status = rc;
+	if (rc == 0) {
+		app.die_temp_mc = temperature_mc;
+		app.die_temp_updated_ms = now;
+	}
+	k_spin_unlock(&die_temp_lock, key);
+
+	if (rc != 0 && rc != previous_status) {
+		LOG_WRN("Die temperature update failed (%d)", rc);
+	}
+}
+
+static void update_vbat(void)
+{
+	int rc = -ENOTSUP;
+	int32_t voltage_mv = 0;
+	int previous_status;
+
+#if defined(CONFIG_SENSOR) && DT_NODE_HAS_STATUS(DT_ALIAS(vbat0), okay)
+	const struct device *dev = DEVICE_DT_GET(DT_ALIAS(vbat0));
+	struct sensor_value voltage;
+
+	if (!device_is_ready(dev)) {
+		rc = -ENODEV;
+	} else {
+		rc = sensor_sample_fetch_chan(dev, SENSOR_CHAN_VOLTAGE);
+		if (rc == 0) {
+			rc = sensor_channel_get(dev, SENSOR_CHAN_VOLTAGE, &voltage);
+		}
+		if (rc == 0) {
+			voltage_mv = (int32_t)sensor_value_to_milli(&voltage);
+		}
+	}
+#endif
+
+	int64_t now = k_uptime_get();
+	k_spinlock_key_t key = k_spin_lock(&vbat_lock);
+
+	previous_status = app.vbat_status;
+	app.vbat_status = rc;
+	if (rc == 0) {
+		app.vbat_mv = voltage_mv;
+		app.vbat_updated_ms = now;
+	}
+	k_spin_unlock(&vbat_lock, key);
+
+	if (rc != 0 && rc != previous_status) {
+		LOG_WRN("VBAT update failed (%d)", rc);
+	}
+}
 
 #if CONFIG_NET_CONNECTION_MANAGER
 #define EVENT_MASK (NET_EVENT_L4_CONNECTED | NET_EVENT_L4_DISCONNECTED)
@@ -295,21 +380,36 @@ int main(void)
 		}
 	}
 
+	int64_t next_sensors = k_uptime_get();
+	int64_t next_led = next_sensors;
+
 	while (1) {
-		if (led_state != -1) {
+		int64_t now = k_uptime_get();
+
+		if (now >= next_sensors) {
+			update_die_temp();
+			update_vbat();
+			now = k_uptime_get();
+			/* Keep a fixed cadence and skip missed periods instead of catching up. */
+			next_sensors += ((now - next_sensors) / SENSOR_PERIOD_MS + 1)
+					* SENSOR_PERIOD_MS;
+		}
+
+		if (led_state != -1 && now >= next_led) {
 			rc = gpio_pin_toggle_dt(&_led);
 			if (rc < 0) {
 				led_state = -1;
 			} else {
 				led_state = !led_state;
-				if (led_state)
-					k_sleep(K_MSEC(SLEEP_TIME_MS / 10));
-				else
-					k_sleep(K_MSEC(SLEEP_TIME_MS - 100));
+				next_led = now + (led_state ? SLEEP_TIME_MS / 10 :
+						 SLEEP_TIME_MS - 100);
 			}
-		} else {
-			k_sleep(K_FOREVER);
 		}
+
+		int64_t deadline = led_state != -1 ? MIN(next_led, next_sensors) :
+						    next_sensors;
+
+		k_sleep(K_TIMEOUT_ABS_MS(deadline));
 	}
 
 	deinit_app();
@@ -326,6 +426,74 @@ static void _ver(void* h, int argc, const char** argv)
 	hupacket_send_buffer(h, NULL);
 }
 DEFINE_HUP_CMD(hup_cmd_ver, "ver", _ver);
+
+/* ACK records: temperature in milli-degrees Celsius, then sample age in ms. */
+static void _die_temp(void *h, int argc, const char **argv)
+{
+	int32_t temperature_mc;
+	int64_t updated_ms;
+	int status;
+
+	ARG_UNUSED(argv);
+	if (argc != 1) {
+		hupacket_nak_response(h, NULL, -EINVAL);
+		hupacket_send_buffer(h, NULL);
+		return;
+	}
+
+	k_spinlock_key_t key = k_spin_lock(&die_temp_lock);
+
+	temperature_mc = app.die_temp_mc;
+	updated_ms = app.die_temp_updated_ms;
+	status = app.die_temp_status;
+	k_spin_unlock(&die_temp_lock, key);
+
+	if (status == 0) {
+		int age_ms = (int)MIN(k_uptime_get() - updated_ms, INT_MAX);
+
+		hupacket_ack_response(h, NULL);
+		hupacket_record_int(h, NULL, temperature_mc);
+		hupacket_record_int(h, NULL, age_ms);
+	} else {
+		hupacket_nak_response(h, NULL, status);
+	}
+	hupacket_send_buffer(h, NULL);
+}
+DEFINE_HUP_CMD(hup_cmd_die_temp, "die_temp", _die_temp);
+
+/* ACK records: VBAT in millivolts, then sample age in ms. */
+static void _vbat(void *h, int argc, const char **argv)
+{
+	int32_t voltage_mv;
+	int64_t updated_ms;
+	int status;
+
+	ARG_UNUSED(argv);
+	if (argc != 1) {
+		hupacket_nak_response(h, NULL, -EINVAL);
+		hupacket_send_buffer(h, NULL);
+		return;
+	}
+
+	k_spinlock_key_t key = k_spin_lock(&vbat_lock);
+
+	voltage_mv = app.vbat_mv;
+	updated_ms = app.vbat_updated_ms;
+	status = app.vbat_status;
+	k_spin_unlock(&vbat_lock, key);
+
+	if (status == 0) {
+		int age_ms = (int)MIN(k_uptime_get() - updated_ms, INT_MAX);
+
+		hupacket_ack_response(h, NULL);
+		hupacket_record_int(h, NULL, voltage_mv);
+		hupacket_record_int(h, NULL, age_ms);
+	} else {
+		hupacket_nak_response(h, NULL, status);
+	}
+	hupacket_send_buffer(h, NULL);
+}
+DEFINE_HUP_CMD(hup_cmd_vbat, "vbat", _vbat);
 
 static void _reboot_timer_handler(struct k_timer *timer)
 {

@@ -5,6 +5,7 @@
  */
 
 #include "stm32n6570_dk_app_common.dtsi"
+#include <st/n6/stm32n6-dts.dtsi>
 
 #include <zephyr/dt-bindings/pwm/pwm.h>
 #include <zephyr/dt-bindings/pwm/pwm_ifx_tcpwm.h>
@@ -12,7 +13,9 @@
 #include <zephyr/dt-bindings/pwm/stm32_pwm.h>
 
 /delete-node/ &red_led_2;
+
 / {
+
 	chosen {
 		zephyr,dtcm = &dtcm;
 		zephyr,itcm = &itcm;
@@ -53,27 +56,18 @@
 			zephyr,code = <INPUT_KEY_2>;
 		};
 	};
-	/*die_temp: dietemp {
-		compatible = "st,stm32-temp-cal";
-		ts-cal1-addr = <0x081FF080>;
-		ts-cal2-addr = <0x081FF082>;
-		ts-cal1-temp = <30>;
-		ts-cal2-temp = <110>;
-		ts-cal-vrefanalog = <1800>;
-		ts-cal-resolution = <16>;
-		io-channels = <&adc1 16>;
-	};*/
-	vbat: vbat {
-		compatible = "st,stm32-vbat";
-		ratio = <4>;
-		io-channels = <&adc1 18>;
-	};
 	aliases {
+		die-temp0 = &die_temp;
+		vbat0 = &vbat;
 		/delete-property/ led1;
 		pwm-led0 = &pwm_led_0;
 		hup-uart = &cdc_acm_uart0;
 		//watchdog0 = &iwdg;
 	};
+};
+
+&die_temp {
+	status = "okay";
 };
 
 &iwdg {

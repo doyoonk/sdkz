@@ -23,6 +23,16 @@
 struct app_data {
     bool connected;
 
+	/* Main-thread temperature cache; status is zero only for a valid sample. */
+	int32_t die_temp_mc;
+	int die_temp_status;
+	int64_t die_temp_updated_ms;
+
+	/* Main-thread VBAT cache, in millivolts; same validity rules as temperature. */
+	int32_t vbat_mv;
+	int vbat_status;
+	int64_t vbat_updated_ms;
+
 	void* hup_uart;
 	void* hup_udp;
 
