@@ -73,6 +73,7 @@ manifest:
       url: https://github.com/micropython/micropython.git
       submodules: #true  # Automatically updates all submodules in this repo
         - path: lib/micropython-lib
+
     - name: micropython-zephyr
       path: modules/lib/micropython/zephyr
       revision: main
@@ -84,3 +85,13 @@ manifest:
     #  path: modules/lib/micropython
     #  submodules:
     #    - path: lib/micropython-lib
+
+    - name: zxc
+      path: modules/lib/zxc
+      revision: main
+      url: https://github.com/doyoonk/zxc.git
+
+    - name: zbc
+      path: modules/lib/zbc
+      revision: main
+      url: https://github.com/doyoonk/zbc.git
