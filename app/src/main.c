@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2021 Nordic Semiconductor ASA
- * Copyright (c) 2025 HU Inc.
+ * Copyright (c) 2025 HU Inc. All rights reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
