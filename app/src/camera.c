@@ -402,7 +402,6 @@ DEFINE_HUP_CMD(hup_cmd_cam_capture, "cam_capture", capture_command);
 static void read_command(void *handle, int argc, const char **argv)
 {
 	struct hup_handle *h = handle;
-	static const char hex[] = "0123456789abcdef";
 	int id, offset, count;
 	int rc = -EINVAL;
 
@@ -431,15 +430,7 @@ static void read_command(void *handle, int argc, const char **argv)
 	hupacket_record_int(h, NULL, snapshot_id);
 	hupacket_record_int(h, NULL, offset);
 	hupacket_record_str(h, NULL, "");
-	char *dst = h->tx_buffer + strlen(h->tx_buffer);
-
-	for (int i = 0; i < count; i++) {
-		uint8_t byte = snapshot[offset + i];
-
-		*dst++ = hex[byte >> 4];
-		*dst++ = hex[byte & 15];
-	}
-	*dst = '\0';
+	hupacket_append_hex_bytes(h, NULL, snapshot + offset, count);
 	rc = 0;
 out:
 	if (rc) {

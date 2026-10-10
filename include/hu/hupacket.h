@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 HU Inc.
+ * Copyright (c) 2025 HU Inc. All rights reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -39,6 +39,8 @@ struct hup_handle
     void* enduser_data;
 
     char tx_buffer[CONFIG_HU_PACKET_SIZE];
+    int tx_error;
+    bool tx_finalized;
     void* user_data;
     send_func send;
 };
@@ -68,13 +70,22 @@ struct hup_resp
 void* init_hupacket(void* h, send_func send, void* user_data);
 void deinit_hupacket(void* h);
 void reset_hupacket(void* h);
+/* At most RECV_BUFFER_SIZE-1 stored bytes (body plus CRC field), reserving
+ * the final byte for NUL. At most 64 records, including the command header.
+ * Oversized frames are discarded; a new ENQ/ACK/NAK starts reception again.
+ */
 void process_hupacket(void* h, uint8_t* data, size_t data_len);
 
 
+/* Builders accept NULL or this handle's tx_buffer only; other buffers have
+ * no known capacity and are rejected. Start each response with reset/ACK/NAK.
+ * On error, further appends do nothing until a new response is started.
+ */
 void hupacket_append_str(void* h, char* buffer, const char* str);
 void hupacket_append_char(void* h, char* buffer, const char ch);
 void hupacket_append_int(void* h, char* buffer, const int val);
 void hupacket_append_hex(void* h, char* buffer, const uint32_t val);
+void hupacket_append_hex_bytes(void* h, char* buffer, const uint8_t* data, size_t size);
 
 
 void hupacket_record_str(void* h, char* buffer, const char* const str);
@@ -86,6 +97,11 @@ void hupacket_reset_buffer(void* h, char* buffer, char res);
 void hupacket_ack_response(void* h, char* buffer);
 void hupacket_nak_response(void* h, char* buffer, int rc);
 
+/* Returns the transport result, or a negative construction/transport error.
+ * On overflow, sends an EMSGSIZE NAK if the complete original header fits;
+ * otherwise sends nothing. Never sends a truncated response. A transmitted
+ * buffer cannot be appended to or sent again until reset/ACK/NAK is called.
+ */
 int hupacket_send_buffer(void* h, char* buffer);
 
 #ifdef __cplusplus

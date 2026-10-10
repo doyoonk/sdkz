@@ -506,14 +506,8 @@ static void decode_command(void *handle, int argc, const char **argv)
 		hupacket_record_int(h, NULL, r->payload_length);
 		hupacket_record_int(h, NULL, offset);
 		hupacket_record_str(h, NULL, "");
-		static const char hex[] = "0123456789abcdef";
-		char *dst = h->tx_buffer + strlen(h->tx_buffer);
 		size_t bytes = MIN((size_t)DATA_CHUNK, r->payload_length - offset);
-		for (size_t i = 0; i < bytes; i++) {
-			uint8_t ch = s->payload[r->payload_offset + offset + i];
-			*dst++ = hex[ch >> 4]; *dst++ = hex[ch & 15];
-		}
-		*dst = '\0';
+		hupacket_append_hex_bytes(h, NULL, s->payload + r->payload_offset + offset, bytes);
 		for (int i = 0; i < 4; i++) {
 			int x = r->position.corner[i].x * (int)s->job.scale + s->job.scale / 2;
 			int y = r->position.corner[i].y * (int)s->job.scale + s->job.scale / 2;
