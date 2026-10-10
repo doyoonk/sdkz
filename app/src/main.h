@@ -52,6 +52,9 @@ int init_bbram();
 void* init_hup_server(const struct app_api* api
     , const char* name, void* stack, int stack_size
     , void* arg1, void* arg2, void* arg3);
+/* Call once from an owning thread (not a HU command, ISR or UART workqueue).
+ * Waits for any running command; callers must serialize lifecycle operations.
+ */
 void deinit_hup_server(void *handle, const struct app_api* api);
 
 #endif // __MAIN_H__

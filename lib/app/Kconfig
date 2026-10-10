@@ -12,6 +12,25 @@ config HU_APP
 
 if HU_APP
 
+config HU_UDP_MAX_SESSIONS
+	int "Maximum HU UDP sender sessions"
+	depends on NET_L2_ETHERNET
+	range 1 16
+	default 4
+	help
+	  Keep separate HU parser state for each IPv4 address and UDP source port.
+	  Parser buffers are allocated on first reception. When all sessions are
+	  occupied, new senders are dropped until a session expires.
+
+config HU_UDP_SESSION_TIMEOUT_MS
+	int "HU UDP session idle timeout (milliseconds)"
+	depends on NET_L2_ETHERNET
+	range 1000 3600000
+	default 30000
+	help
+	  Release idle sender sessions, including incomplete packets. A running
+	  command is never expired; its idle timer restarts when processing ends.
+
 source "samples/subsys/usb/common/Kconfig.sample_usbd"
 source "samples/net/common/Kconfig"
 
