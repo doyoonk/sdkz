@@ -91,7 +91,7 @@ mp_obj_t machine_hard_spi_make_new(const mp_obj_type_t *type, size_t n_args, siz
 
     struct spi_config cfg = {
         .frequency = args[ARG_baudrate].u_int,
-        .operation = (SPI_OP_MODE_MASTER |
+        .operation = (SPI_OP_MODE_CONTROLLER |
             args[ARG_polarity].u_int << 1 |
                 args[ARG_phase].u_int << 2 |
                 SPI_LOOP << 3 |
