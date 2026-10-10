@@ -19,6 +19,14 @@ string(TOUPPER          ZEPHYR_${BOARD} MICROPY_BOARD)
 
 include(${MICROPY_DIR}/py/py.cmake)
 include(${MICROPY_DIR}/extmod/extmod.cmake)
+
+# Resolve MICROPY_FROZEN_MANIFEST before usermod.cmake (and thus
+# py/manifest.cmake) runs, so c_module() entries in the manifest are picked up.
+if (CONFIG_MICROPY_FROZEN_MODULES)
+    cmake_path(ABSOLUTE_PATH CONFIG_MICROPY_FROZEN_MANIFEST BASE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
+    set(MICROPY_FROZEN_MANIFEST ${CONFIG_MICROPY_FROZEN_MANIFEST})
+endif()
+
 include(${MICROPY_DIR}/py/usermod.cmake)
 
 list(APPEND DTS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/dts)
@@ -42,17 +50,12 @@ elseif(CONFIG_RISCV_ISA_RV64I AND CONFIG_RISCV_ISA_EXT_M AND CONFIG_RISCV_ISA_EX
     set(MICROPY_CROSS_FLAGS -march=rv64imc)
 endif()
 
-if (CONFIG_MICROPY_FROZEN_MODULES)
-    cmake_path(ABSOLUTE_PATH CONFIG_MICROPY_FROZEN_MANIFEST BASE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
-    set(MICROPY_FROZEN_MANIFEST ${CONFIG_MICROPY_FROZEN_MANIFEST})
-endif()
-
 dt_chosen(has_port PROPERTY "micropy,console")
 
 set(MICROPY_SOURCE_PORT
     main.c
     help.c
-    #machine_i2c.c
+    machine_i2c.c
     machine_spi.c
     machine_pin.c
     machine_timer.c
@@ -64,6 +67,8 @@ set(MICROPY_SOURCE_PORT
     zephyr_device.c
     zephyr_storage.c
     zephyr_filesystem.c
+    zephyr_display.c
+    zephyr_regulator.c
     mpthreadport.c
 )
 if (CONFIG_CONSOLE_SUBSYS AND (DEFINED has_port))
