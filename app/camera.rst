@@ -31,6 +31,105 @@ case-sensitive; aliases such as RGB565, RGB888 and ARGB8888 are also accepted.
 For USB, install pyserial and use ``--serial COM20`` instead of ``--host``.
 Select the board's HU USB CDC port, not the ST-Link shell port.
 
+Board barcode recognition (ZXC)
+-------------------------------
+
+STM32N6570-DK enables ``CONFIG_ZXC=y`` and ``CONFIG_APP_CAMERA_BARCODE=y``.
+The board scans the camera in a separate, lower-priority thread and shows
+the symbology and a printable payload preview at the bottom of the LCD.
+Default searches include ZXC's readable 1D and 2D families: linear barcodes,
+QR/Micro QR/rMQR, Data Matrix, Aztec, PDF417/MicroPDF417 and MaxiCode.
+OPSPro is not included in ZXC's default search.
+
+Every two seconds a frame is sampled for live recognition. A HU snapshot
+request also queues that exact source frame, ahead of a pending live scan.
+Two independent grayscale buffers keep decoder input immutable while DMA
+capture, LCD preview and native snapshot transfer continue. Both grayscale
+buffers use ``shared_multi_heap_aligned_alloc`` with the video's memory attribute.
+STM32N6570-DK enables ``CONFIG_ZXC_USE_HEAP=y`` (heap1). When
+``CONFIG_VIDEO_BUFFER_USE_SHARED_MULTI_HEAP=y``, the app defaults ZXC's allocator
+to CUSTOM and supplies the four hooks in ``sdk/app/src/scanner_zxc.c``. All ZXC
+allocations use ``CONFIG_VIDEO_BUFFER_SMH_ATTRIBUTE`` through
+``shared_multi_heap_alloc``, ``shared_multi_heap_realloc`` and
+``shared_multi_heap_free``. Calloc allocates from the same heap and zeroes the
+requested bytes. There is no extra allocation header or forced 32-byte
+alignment; realloc uses Zephyr's implementation and retains the original block
+on failure. This selection is based on the
+shared-heap configuration, not the board name. Without it, ZXC retains its
+default libc allocator. No native camera data is modified.
+
+The default recognition limit is 800x480. Larger frames use integer-factor
+sampling while retaining the original capture resolution and raw payload.
+``APP_CAMERA_BARCODE_WIDTH/HEIGHT`` change the recognition limits;
+``APP_CAMERA_BARCODE_INTERVAL_MS`` changes the live scan interval. Eight
+symbols and a 16 KiB payload arena are reserved for LCD/HU results. Heap1 output
+is copied within these limits before it is released; incomplete symbols are
+omitted and truncation reports PARTIAL with OUTPUT capacity flags.
+ZXC PARTIAL status and capacity
+flags are exposed instead of treating a capacity shortage as an empty success.
+Heap1 grows its internal buffers as needed, bounded by available shared memory;
+it has no fixed 6 MiB workspace cap. Allocation failures report ENOMEM.
+Heap0 remains supported with a default 6 MiB workspace cap.
+
+All 16 N6 camera output formats have grayscale input adapters. YUV uses its
+native Y channel; RGB uses luminance conversion. Other formats such as encoded
+JPEG or unprocessed Bayer remain transferable but board recognition returns
+ENOTSUP. CPU time depends on the image and reader; two seconds is a sampling
+interval, not a guaranteed worst-case recognition deadline.
+
+The PC viewer displays results from the same snapshot ID as the image, with
+colored quadrilateral outlines and numbered format labels at each symbol.
+The same numbers identify payloads in the scrollable result panel. Overlays
+follow image scaling and centering and are cleared with each new frame.
+The LCD shows numbered outlines from the latest completed scan with its age,
+and at most three payload previews. LCD coordinates include the image's
+contain/letterbox scaling; outlines disappear after a format-size change or
+when the result becomes stale. Since LCD video continues between scans,
+moving objects can move away from a previous scan's outline until the next scan.
+LCD text replaces non-ASCII bytes with dots. PC text attempts UTF-8 and escapes
+control/invalid bytes; it does not interpret ECI charset changes. The complete
+recognized raw bytes are retained as hexadecimal in the PC results, including
+GS1 separators and binary payloads. Recognition itself does not open decoded
+URLs or execute their contents.
+
+For one capture and its results in the raw sidecar JSON::
+
+   python sdk/scripts/camera_capture.py --host 192.168.1.253 --output capture.png --recognize
+
+HU ``cam_decode <snapshot-id> <generation> <index> <offset>`` retrieves results:
+
+* ``cam_decode <id> 0 0 0`` returns id, generation, symbol count, ZXC status,
+  hexadecimal capacity flags, source width/height, scan width/height,
+  scan duration and frame age in milliseconds. Pending decoding returns EAGAIN.
+* Index 1 through count returns id, generation, index, format name, symbology
+  identifier, total payload length, byte offset, up to 256 payload bytes in hex,
+  four x/y corners in original image coordinates, and the has-ECI flag.
+  Supply the generation from the summary. Increment offset until the full
+  payload has been read. A changed generation returns ESTALE.
+* ID 0 accesses the latest live result. Positive IDs select the last requested
+  snapshot's result, which is retained across subsequent periodic scans.
+
+Live PC viewer
+--------------
+
+Display a new snapshot every two seconds without changing the camera format
+or dimensions::
+
+   python sdk/scripts/camera_viewer.py --host 192.168.1.253 --interval 2
+
+The viewer uses Tkinter (install ``python3-tk`` on Ubuntu if needed). It reuses
+the capture tool's native transfer, CRC32 verification and PC color decoders.
+The viewer also queries and displays board ZXC results for each captured image;
+``--no-recognize`` disables this query for older firmware. No image files are
+retained. Close the window to stop capture. The last image
+remains visible during a connection failure, with retries shown in the status
+line. Encoded formats require ffmpeg, as for the single-image capture tool.
+
+``--serial``, ``--port``, ``--baud`` and the combined ``--format --width --height``
+options work as in ``camera_capture.py``. Capture starts are spaced by
+``--interval`` seconds; if transfer and decoding take longer, the next capture
+starts after completion without overlapping snapshots.
+
 Supported formats and dimensions
 --------------------------------
 
@@ -119,3 +218,11 @@ Validation
 Build with ``west build -b stm32n6570_dk --shield st_b_cams_imx_mb1854 ./sdk/app
 -d ./builds/stm32n6570_dk/app``. Host protocol/color tests run with
 ``python -m unittest discover -s sdk/scripts -p test_camera_capture.py -v``.
+
+Barcode protocol tests are included with ``-p 'test_camera*.py'``. The host C
+integration test checks all N6 grayscale adapters, padded/downsampled RGB565
+QR recognition, Code128 recognition, empty images and input bounds::
+
+   cmake -S sdk/tests/app/camera_barcode -B /tmp/sdkz-camera-barcode -DCMAKE_BUILD_TYPE=Release
+   cmake --build /tmp/sdkz-camera-barcode --parallel
+   ctest --test-dir /tmp/sdkz-camera-barcode --output-on-failure

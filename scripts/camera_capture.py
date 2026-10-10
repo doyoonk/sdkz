@@ -24,6 +24,7 @@ class CameraImage:
     pitch: int
     fourcc: str
     data: bytes
+    recognition: dict | None = None
 
 
 ALIASES = {
@@ -114,7 +115,64 @@ class HuClient:
         raise TimeoutError(f"No valid response to {command} after three attempts")
 
 
-def download(client, progress=None):
+def read_barcodes(client, snapshot_id, progress=None, timeout=30):
+    """Fetch board-side ZXC results for exactly this immutable snapshot."""
+    deadline = time.monotonic() + timeout
+    while True:
+        if progress:
+            progress()
+        try:
+            fields = client.request("cam_decode", snapshot_id, 0, 0, 0)
+            break
+        except HuError as error:
+            if error.status != -11 or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.05)
+    if len(fields) != 11:
+        raise ValueError("Invalid barcode summary")
+    sid, generation, count, status = map(int, fields[:4])
+    flags = int(fields[4], 16)
+    width, height, scan_width, scan_height, elapsed, age = map(int, fields[5:])
+    if (sid != snapshot_id or generation <= 0 or not 0 <= count <= 8 or status not in (0, 1)
+            or not 0 < scan_width <= width <= 8192 or not 0 < scan_height <= height <= 8192):
+        raise ValueError("Invalid barcode summary values")
+    symbols = []
+    for index in range(1, count + 1):
+        payload = bytearray()
+        expected = None
+        while True:
+            if progress:
+                progress()
+            part = client.request("cam_decode", snapshot_id, generation, index, len(payload))
+            if len(part) != 17:
+                raise ValueError("Invalid barcode result")
+            rsid, rgen, rindex = map(int, part[:3])
+            size, offset = map(int, part[5:7])
+            chunk = bytes.fromhex(part[7])
+            corners = list(map(int, part[8:16]))
+            identity = (part[3], part[4], size, tuple(corners), int(part[16]))
+            if ((rsid, rgen, rindex) != (snapshot_id, generation, index)
+                    or offset != len(payload) or not 0 <= size <= 16384
+                    or len(chunk) > 256 or offset + len(chunk) > size
+                    or (not chunk and offset < size)
+                    or (expected is not None and identity != expected)
+                    or any(not 0 <= v < (width if i % 2 == 0 else height)
+                           for i, v in enumerate(corners))):
+                raise ValueError("Inconsistent barcode result")
+            expected = identity
+            payload.extend(chunk)
+            if len(payload) == size:
+                break
+        symbols.append({"format": part[3], "identifier": part[4],
+                        "payload_hex": payload.hex(), "corners": corners,
+                        "has_eci": bool(int(part[16]))})
+    return {"generation": generation, "status": status, "capacity_flags": flags,
+            "width": width, "height": height, "scan_width": scan_width,
+            "scan_height": scan_height, "elapsed_ms": elapsed, "age_ms": age,
+            "symbols": symbols}
+
+
+def download(client, progress=None, recognize=False):
     snapshot_id = secrets.randbelow(0x7FFFFFFF) + 1
     # A lost initial response can still have reserved a snapshot on the board.
     owned = True
@@ -157,7 +215,16 @@ def download(client, progress=None):
                 progress(len(image), size)
         if zlib.crc32(image) != int(checksum, 16):
             raise ValueError("Snapshot CRC32 mismatch")
-        return CameraImage(width, height, pitch, pixel_format, bytes(image))
+        recognition = None
+        if recognize:
+            try:
+                check_cancel = (lambda: progress(len(image), len(image))) if progress else None
+                recognition = read_barcodes(client, snapshot_id, check_cancel)
+                if (recognition["width"], recognition["height"]) != (width, height):
+                    raise ValueError("Barcode result dimensions differ from the snapshot")
+            except (OSError, RuntimeError, ValueError) as error:
+                recognition = {"error": str(error)}
+        return CameraImage(width, height, pitch, pixel_format, bytes(image), recognition)
     finally:
         if owned:
             try:
@@ -410,6 +477,7 @@ def main():
     parser.add_argument("--width", type=int)
     parser.add_argument("--height", type=int)
     parser.add_argument("--list-formats", action="store_true", help="List formats reported by the camera driver")
+    parser.add_argument("--recognize", action="store_true", help="Fetch board ZXC results for this snapshot")
     args = parser.parse_args()
     client = HuClient(args.host, args.port, args.serial, args.baud)
     last_percent = -1
@@ -429,7 +497,7 @@ def main():
             if any(v is None for v in (args.format, args.width, args.height)):
                 parser.error("--format, --width, and --height must be specified together")
             configure(client, args.format, args.width, args.height)
-        image = download(client, progress)
+        image = download(client, progress, recognize=args.recognize)
         raw_path = args.raw_output or (args.output.with_suffix(".raw") if args.output.suffix.lower() == ".png" else args.output)
         raw_path.write_bytes(image.data)
         raw_path.with_suffix(raw_path.suffix + ".json").write_text(json.dumps({
@@ -437,6 +505,7 @@ def main():
             "pitch": image.pitch, "size": len(image.data),
             "crc32": f"{zlib.crc32(image.data):08x}", "yuv_matrix": "BT601_FULL",
             "planar_layout": "STM32_DCMIPP_CONTIGUOUS",
+            "recognition": image.recognition,
         }, indent=2) + "\n")
         if args.output.suffix.lower() == ".png":
             write_png(args.output, image.width, image.height, image.data, image.fourcc, image.pitch)
