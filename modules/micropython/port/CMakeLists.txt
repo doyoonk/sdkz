@@ -193,6 +193,10 @@ if(CONFIG_MICROPY_VFS_LFS2)
 endif()
 
 zephyr_library_sources(${MICROPY_SOURCE_QSTR})
+zephyr_library_sources(src/zephyr_start.c)
+if(NOT CONFIG_CONSOLE_SUBSYS)
+    zephyr_library_sources(src/zephyr_getchar.c)
+endif()
 zephyr_library_link_libraries(kernel)
 
 include(${MICROPY_DIR}/py/mkrules.cmake)

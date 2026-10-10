@@ -31,9 +31,6 @@ config BOARD_HAS_VBAT_BATTERY
     the VBAT pin of the MCU. This allows the RTC and backup registers to
     retain their content when the main power supply is turned off.
 
-config MICROPYTHON
-  bool "Micropython"
-
 config APP_PALLOC_SELF_TEST
 	bool "Test the TCM palloc pools at boot"
 	depends on HU_PALLOC
@@ -41,12 +38,6 @@ config APP_PALLOC_SELF_TEST
 	  Run allocation, reallocation, alignment and exhaustion checks after
 	  initializing an ITCM or DTCM pool and before starting its users.
 	  When both are enabled, also test both regions and cross-region moves.
-
-config MICROPYTHON_THREAD_STACK_SIZE
-  int
-  default 4736
-  help
-    MicroPython thread stack size
 
 mainmenu "Video capture to LVGL sample application"
 
@@ -172,5 +163,3 @@ config APP_CAMERA_BARCODE_WORKSPACE_LIMIT
 endif
 
 endmenu
-
-rsource "micropython/Kconfig"

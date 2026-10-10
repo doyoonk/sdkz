@@ -9,8 +9,9 @@ The existing MicroPython Zephyr module uses `cmake-ext` to select
 entry point includes this directory during Zephyr module processing, so the
 interpreter is registered as a Zephyr library before kernel linking.
 Configure and build `sdk/app`, not this directory. The app owns USB
-initialization and adds the interpreter thread through `src/zephyr_start.c`;
-it does not register or explicitly link the interpreter library itself.
+initialization. This module adds the interpreter thread through
+`src/zephyr_start.c`; the app does not register or explicitly link the
+interpreter library itself.
 
 `CONFIG_MICROPYTHON_LIGHT` retains its separate module implementation. Enable
 only one implementation at a time.

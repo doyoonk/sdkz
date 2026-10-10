@@ -10,15 +10,6 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 project(app LANGUAGES C)
 
-if(CONFIG_MICROPYTHON)
-    # The interpreter library is registered by sdk/modules/micropython.
-    # The app owns thread startup and USB initialization.
-    target_sources(app PRIVATE micropython/src/zephyr_start.c)
-    target_sources_ifndef(CONFIG_CONSOLE_SUBSYS app PRIVATE
-        micropython/src/zephyr_getchar.c
-    )
-endif()
-
 target_sources(app PRIVATE
     src/camera.c
     src/hup_server.c
