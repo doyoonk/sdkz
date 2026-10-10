@@ -14,6 +14,11 @@
 #include <hu/bootloader.h>
 #include <huerrno.h>
 
+#if defined(CONFIG_FLASH_STM32_WRITE_PROTECT) && defined(CONFIG_FLASH_EX_OP_ENABLED) && \
+    defined(CONFIG_FLASH_PAGE_LAYOUT)
+#include <zephyr/drivers/flash/stm32_flash_api_extensions.h>
+#endif
+
 LOG_MODULE_REGISTER(huflash, CONFIG_LOG_DEFAULT_LEVEL);
 
 #define ASCII85_ERROR_CODE_START    255
@@ -69,7 +74,7 @@ static int open_flash_partition(const char* partition_name, const struct flash_a
         uint8_t partition_id;
         rc = bootloader_active_slot((uint8_t*)&partition_id);
         if (rc != 0)
-            rc = get_partition_id(partition_name);
+            return rc;
         else if (partition_id == 0)
             rc = get_partition_id("slot1");
         else if (partition_id == 1)
@@ -85,7 +90,7 @@ static int open_flash_partition(const char* partition_name, const struct flash_a
     rc = get_partition_id(partition_name);
 #endif
 
-    if (rc != 0)
+    if (rc < 0)
         return rc;
     return flash_area_open(rc, fa);
 }
@@ -112,33 +117,78 @@ static inline void _set_done(void*h, int argc, const char** argv, int from, int 
     hupacket_send_buffer(h, NULL);
 }
 
+static int protect_flash_partition(const struct flash_area *fa, bool enable)
+{
+#if defined(CONFIG_FLASH_STM32_WRITE_PROTECT) && defined(CONFIG_FLASH_EX_OP_ENABLED) && \
+    defined(CONFIG_FLASH_PAGE_LAYOUT)
+    const struct device *dev = flash_area_get_device(fa);
+    struct flash_stm32_ex_op_sector_wp_out result;
+    uint64_t mask = 0;
+
+    /* Vendor operation numbers can mean something else on an external flash. */
+    if (dev != DEVICE_DT_GET(DT_INST(0, st_stm32_flash_controller)))
+        return -ENOTSUP;
+#if defined(CONFIG_FLASH_STM32_WRITE_PROTECT_DISABLE_PREVENTION)
+    if (!enable) return -EACCES;
+#endif
+    if (fa->fa_off < 0 || fa->fa_size == 0) return -EINVAL;
+    /* Zephyr flash offsets are signed. Validate before computing the end. */
+    if ((uint64_t)fa->fa_off > INT32_MAX ||
+        (uint64_t)fa->fa_size > INT32_MAX - (uint64_t)fa->fa_off)
+        return -EINVAL;
+
+    off_t offset = fa->fa_off;
+    size_t remaining = fa->fa_size;
+    while (remaining != 0) {
+        struct flash_pages_info page;
+        int rc = flash_get_page_info_by_offs(dev, offset, &page);
+        if (rc != 0) return rc;
+        /* Never protect adjacent data by rounding a partition boundary. */
+        if (page.start_offset != offset || page.size == 0 || page.size > remaining)
+            return -EINVAL;
+        if (page.index >= 64) return -ENOTSUP;
+        mask |= UINT64_C(1) << page.index;
+        offset += page.size;
+        remaining -= page.size;
+    }
+
+    int rc = flash_ex_op(dev, FLASH_STM32_EX_OP_SECTOR_WP, 0, &result);
+    if (rc != 0) return rc;
+    uint64_t expected = enable ? mask : 0;
+    if ((result.protected_mask & mask) == expected) return 0;
+
+    const struct flash_stm32_ex_op_sector_wp_in request = {
+        .enable_mask = enable ? mask : 0,
+        .disable_mask = enable ? 0 : mask,
+    };
+    rc = flash_ex_op(dev, FLASH_STM32_EX_OP_SECTOR_WP, (uintptr_t)&request, &result);
+    if (rc != 0) return rc;
+    return (result.protected_mask & mask) == expected ? 0 : -EIO;
+#else
+    ARG_UNUSED(fa);
+    ARG_UNUSED(enable);
+    return -ENOTSUP;
+#endif
+}
+
 static void _wrprt(void* h, int argc, const char** argv)
 {
-#if CONFIG_FLASH_HAS_EX_OP
     const struct flash_area* fa = NULL;
     int rc = -EINVAL;
 
     last_size = -1;
-    if (argc >= ARG_WRPRT_MAX)
+    if (argc == ARG_WRPRT_MAX &&
+        (strcmp(argv[ARG_FLASH_WRITE_PROTECT], "0") == 0 ||
+         strcmp(argv[ARG_FLASH_WRITE_PROTECT], "1") == 0))
     {
-        int wrptr = strtol(argv[ARG_FLASH_WRITE_PROTECT], NULL, 10);
         rc = open_flash_partition(argv[ARG_FLASH_PARTITION], &fa);
-        if (rc != 0)
-        {
-            LOG_ERR("Write protect: Failed to open partition %s", argv[ARG_FLASH_PARTITION]);
-            goto fw_wrprt_error;
-        }
-#if  CONFIG_FLASH_STM32_WRITE_PROTECT
-        // TODO: write protect
-#endif
-        LOG_INF("Succeed wrprt partition %s, id %d, %s", argv[ARG_FLASH_PARTITION], fa->fa_id, wrptr ? "locked" : "unlocked");
+        if (rc == 0)
+            rc = protect_flash_partition(fa, argv[ARG_FLASH_WRITE_PROTECT][0] == '1');
     }
-fw_wrprt_error:
     _set_status(h, rc);
 
     close_flash_partition(fa);
     _set_done(h, argc, argv, ARG_FLASH_PARTITION, ARG_FLASH_WRITE_PROTECT);
-#endif
 }
 DEFINE_HUP_CMD(hup_cmd_wrprt, "wrprt", _wrprt);
 
@@ -148,7 +198,7 @@ static void _erase(void* h, int argc, const char** argv)
     int rc = -EINVAL;
 
     last_size = -1;
-    if (argc >= ARG_ERASE_MAX)
+    if (argc == ARG_ERASE_MAX)
     {
         rc = open_flash_partition(argv[ARG_FLASH_PARTITION], &fa);
         if (rc != 0)
@@ -173,52 +223,78 @@ fw_erase_error:
 }
 DEFINE_HUP_CMD(hup_cmd_erase, "erase", _erase);
 
+static bool parse_hex_u32(const char *text, uint32_t *value)
+{
+    uint32_t result = 0;
+    if (text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) text += 2;
+    if (*text == '\0') return false;
+    for (; *text != '\0'; text++) {
+        unsigned digit;
+        if (*text >= '0' && *text <= '9') digit = *text - '0';
+        else if (*text >= 'a' && *text <= 'f') digit = *text - 'a' + 10;
+        else if (*text >= 'A' && *text <= 'F') digit = *text - 'A' + 10;
+        else return false;
+        if (result > (UINT32_MAX - digit) / 16) return false;
+        result = result * 16 + digit;
+    }
+    *value = result;
+    return true;
+}
+
+static int decode_flash_data(const char *text, uint8_t *output, size_t size)
+{
+    size_t remaining = strlen(text);
+    size_t written = 0;
+    while (remaining != 0) {
+        /* The decoder reserves four bytes per encoded character, even for
+         * ordinary five-character groups. Bound each call with a small
+         * scratch buffer rather than trusting a worst-case whole-packet size.
+         */
+        uint8_t chunk[20];
+        size_t count = *text == 'z' ? 1 : MIN(remaining, 5);
+        if (count == 1 && *text != 'z') return -ECODEA85;
+        int decoded = decode_ascii85((const uint8_t *)text, count, chunk, sizeof(chunk));
+        if (decoded < 0) return -(decoded + ASCII85_ERROR_CODE_START + EASCII85);
+        if ((size_t)decoded > size - written) return -EDESZA85;
+        memcpy(output + written, chunk, decoded);
+        written += decoded;
+        text += count;
+        remaining -= count;
+    }
+    return written == size ? 0 : -EDESZA85;
+}
+
 static void _flash(void* h, int argc, const char** argv)
 {
-    int size;
+    uint32_t size, offset;
+    struct hup_handle* handle = h;
     const struct flash_area* fa = NULL;
     int rc = -EINVAL;
 
-    if (argc < ARG_FLASH_MAX)
+    if (argc != ARG_FLASH_MAX ||
+        !parse_hex_u32(argv[ARG_FLASH_LENGTH], &size) ||
+        !parse_hex_u32(argv[ARG_FLASH_OFFSET], &offset) ||
+        size == 0 || size > ASCII85_MAX_CHUNK_SIZE ||
+        size > sizeof(handle->tx_buffer) || offset > INT32_MAX)
         goto fw_flash_error;
 
     rc = open_flash_partition(argv[ARG_FLASH_PARTITION], &fa);
     if (rc != 0)
         goto fw_flash_error;
 
-    size = strtol(argv[ARG_FLASH_LENGTH], NULL, 16);
-    if (size <= ASCII85_MAX_CHUNK_SIZE)
+    if (offset > fa->fa_size || size > fa->fa_size - offset)
     {
         rc = -EINVAL;
+        goto fw_flash_error;
     }
-    else
+    rc = decode_flash_data(argv[ARG_FLASH_ASCII85_DATA],
+        (uint8_t *)handle->tx_buffer, size);
+    if (rc == 0)
     {
-        struct hup_handle* handle = (struct hup_handle*)h;
-        int offset = strtol(argv[ARG_FLASH_OFFSET], NULL, 16);
-        uint8_t* ptr = (uint8_t*)argv[ARG_FLASH_ASCII85_DATA];
-        int32_t len = strlen(ptr);
-        int bin_len = decode_ascii85(ptr, len, handle->tx_buffer, (ASCII85_MAX_CHUNK_SIZE * 5));
-
-        if (bin_len < 0)
-            rc = -(bin_len + ASCII85_ERROR_CODE_START + EASCII85);
-        if (rc == 0 && bin_len != size)
-            rc = -EDESZA85;
-        if (rc != 0)
-        {
-            LOG_INF("Flash: Failed decode error code %d", rc);
-        }
-        else
-        {
-            rc = flash_area_write(fa, offset, handle->tx_buffer, size);
-            if (rc != 0)
-            {
-                LOG_INF("Flash: Failed write error code %d", rc);
-            }
-            else if (last_size != size)
-            {
-                last_size = size;
-                LOG_INF("Flash: Succeed offset 0x%08x, len 0x%x", offset, size);
-            }
+        rc = flash_area_write(fa, offset, handle->tx_buffer, size);
+        if (rc == 0 && last_size != size) {
+            last_size = size;
+            LOG_INF("Flash: Succeed offset 0x%08x, len 0x%x", offset, size);
         }
     }
 
