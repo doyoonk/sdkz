@@ -1,6 +1,30 @@
 MicroPython port to Zephyr RTOS
 ===============================
 
+SDK application integration
+---------------------------
+
+The existing MicroPython Zephyr module uses `cmake-ext` to select
+`sdk/modules/micropython/CMakeLists.txt`. When `CONFIG_MICROPYTHON=y`, that
+entry point includes this directory during Zephyr module processing, so the
+interpreter is registered as a Zephyr library before kernel linking.
+Configure and build `sdk/app`, not this directory. The app owns USB
+initialization and adds the interpreter thread through `src/zephyr_start.c`;
+it does not register or explicitly link the interpreter library itself.
+
+`CONFIG_MICROPYTHON_LIGHT` retains its separate module implementation. Enable
+only one implementation at a time.
+
+The interpreter core comes from `ZEPHYR_MICROPYTHON_MODULE_DIR`. The source list,
+port compiler settings, QSTR generation, and frozen modules are managed here.
+Relative `CONFIG_MICROPY_FROZEN_MANIFEST` paths remain relative to `sdk/app`
+(for example `boards/manifest.py`). Generated headers remain in the top-level
+build directory's `genhdr/`, as required by MicroPython's build rules.
+QSTR preprocessing captures the final Zephyr include paths and compiler flags
+after CMake configuration, including headers supplied by later modules.
+
+The following sections describe the upstream Zephyr port and its examples.
+
 This is a work-in-progress port of MicroPython to Zephyr RTOS
 (http://zephyrproject.org).
 

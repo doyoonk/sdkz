@@ -1,7 +1,15 @@
 # Copyright (c) 2025 Nordic Semiconductor ASA
 # SPDX-License-Identifier: Apache-2.0
 
-if(CONFIG_MICROPYTHON_LIGHT)
+if(CONFIG_MICROPYTHON AND CONFIG_MICROPYTHON_LIGHT)
+  message(FATAL_ERROR "Enable only one of CONFIG_MICROPYTHON and CONFIG_MICROPYTHON_LIGHT")
+endif()
+
+if(CONFIG_MICROPYTHON)
+  # Build the SDK port during Zephyr module processing, before kernel linking.
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../../app/micropython
+                   ${CMAKE_CURRENT_BINARY_DIR}/port)
+elseif(CONFIG_MICROPYTHON_LIGHT)
   zephyr_library_named(micropython)
 
   zephyr_library_include_directories(include)
