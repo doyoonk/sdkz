@@ -7,6 +7,8 @@
 
 config HU_APP
 	bool "Support for HU APP library"
+	select NET_CONTEXT_RCVTIMEO if NET_L2_ETHERNET
+	select NET_CONTEXT_SNDTIMEO if NET_L2_ETHERNET
 	help
 	  This option enables the 'HU APP' library
 

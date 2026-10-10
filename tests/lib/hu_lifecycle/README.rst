@@ -58,6 +58,9 @@ UDP defaults to four IPv4 sender sessions and a 30-second idle timeout, controll
 by CONFIG_HU_UDP_MAX_SESSIONS and CONFIG_HU_UDP_SESSION_TIMEOUT_MS. A full session
 table drops new senders without replacing existing partial packets. Each session
 owns its response address; sequence values are never used for deduplication.
+HU_APP selects NET_CONTEXT_RCVTIMEO and NET_CONTEXT_SNDTIMEO for Ethernet so
+the native Zephyr socket backend supports the receive/send deadlines required
+for cancellation. POSIX host sockets do not validate these Kconfig dependencies.
 
 HU response builders reserve CRC/end-marker/NUL space and latch errors until
 reset/ACK/NAK begins a new response. Buffer arguments must be NULL or the handle's
