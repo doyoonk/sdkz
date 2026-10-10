@@ -10,9 +10,9 @@
 	chosen {
 		zephyr,bootloader-info = &boot_info0;
 	};
+	/* Reserve the final 1 KiB; backup_sram owns hardware initialization. */
 	backup_sram_retained@3c001c00 {
-		//compatible = "zephyr,memory-region", "mmio-sram";
-		compatible = "zephyr,memory-region", "st,stm32-backup-sram";
+		compatible = "zephyr,memory-region", "mmio-sram";
 		reg = <0x3c001c00 DT_SIZE_K(1)>;
 		zephyr,memory-region = "RetainedMem";
 		status = "okay";

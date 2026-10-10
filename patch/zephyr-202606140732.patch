@@ -11,19 +11,3 @@ index 210b772e6f3..2ca583a9279 100644
  
  #if DT_HAS_COMPAT_STATUS_OKAY(st_stm32n6_ethernet)
  	mac_config.PortSelect = PHY_LINK_IS_SPEED_1000M(state->speed) ? DISABLE : ENABLE;
-diff --git a/soc/st/stm32/stm32n6x/axisram/stm32n6_axisram.c b/soc/st/stm32/stm32n6x/axisram/stm32n6_axisram.c
-index 93517b24d0f..dfebede31d3 100644
---- a/soc/st/stm32/stm32n6x/axisram/stm32n6_axisram.c
-+++ b/soc/st/stm32/stm32n6x/axisram/stm32n6_axisram.c
-@@ -43,6 +43,11 @@ static int axisram_stm32_init(const struct device *dev)
- 	ramcfg.Instance = cfg->base;
- 	HAL_RAMCFG_EnableAXISRAM(&ramcfg);
- 
-+#if DT_HAS_COMPAT_STATUS_OKAY(hu_stm32_bkdomain)
-+	extern void stm32_backup_domain_enable_access(void);
-+	stm32_backup_domain_enable_access();
-+#endif
-+
- 	return 0;
- }
- 
