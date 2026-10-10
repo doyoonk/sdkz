@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include <lvgl.h>
+#include "scanner_zxc.h"
 
 LOG_MODULE_REGISTER(camera, CONFIG_LOG_DEFAULT_LEVEL);
 
@@ -66,6 +67,72 @@ static const struct camera_pixel_format pixel_formats[] = {
 	{"YV12", VIDEO_PIX_FMT_YVU420, 0, 0, 0, 0},
 };
 static const struct camera_pixel_format *camera_format;
+#ifdef CONFIG_APP_CAMERA_BARCODE
+static lv_obj_t *barcode_outline[SCANNER_ZXC_MAX_SYMBOLS];
+static lv_obj_t *barcode_line[SCANNER_ZXC_MAX_SYMBOLS];
+static lv_obj_t *barcode_number[SCANNER_ZXC_MAX_SYMBOLS];
+static lv_point_precise_t barcode_points[SCANNER_ZXC_MAX_SYMBOLS][5];
+static const uint32_t barcode_colors[] = {
+	0x39ff70, 0x00d9ff, 0xffd54f, 0xff80df, 0xff914d, 0xb6a0ff, 0xffffff, 0x9de34f
+};
+
+static void barcode_overlay_create(void)
+{
+	for (size_t i = 0; i < SCANNER_ZXC_MAX_SYMBOLS; i++) {
+		barcode_outline[i] = lv_line_create(lv_screen_active());
+		lv_obj_set_style_line_color(barcode_outline[i], lv_color_black(), 0);
+		lv_obj_set_style_line_width(barcode_outline[i], 5, 0);
+		barcode_line[i] = lv_line_create(lv_screen_active());
+		lv_obj_set_style_line_color(barcode_line[i], lv_color_hex(barcode_colors[i]), 0);
+		lv_obj_set_style_line_width(barcode_line[i], 2, 0);
+		barcode_number[i] = lv_label_create(lv_screen_active());
+		lv_label_set_text_fmt(barcode_number[i], "%u", (unsigned)i + 1);
+		lv_obj_set_style_bg_color(barcode_number[i], lv_color_black(), 0);
+		lv_obj_set_style_bg_opa(barcode_number[i], LV_OPA_COVER, 0);
+		lv_obj_set_style_text_color(barcode_number[i], lv_color_hex(barcode_colors[i]), 0);
+		lv_obj_set_style_pad_all(barcode_number[i], 3, 0);
+		lv_obj_set_hidden(barcode_outline[i], true);
+		lv_obj_set_hidden(barcode_line[i], true);
+		lv_obj_set_hidden(barcode_number[i], true);
+	}
+}
+
+static void barcode_overlay_update(lv_obj_t *image, lv_obj_t *label,
+				   const struct video_format *fmt, bool visible)
+{
+	static struct scanner_zxc_overlay overlay;
+	char text[384];
+	scanner_zxc_label(text, sizeof(text), &overlay);
+	lv_label_set_text(label, text);
+	bool valid = visible && overlay.width == fmt->width && overlay.height == fmt->height;
+	int32_t scale = lv_image_get_scale(image);
+	/* Match LV_IMAGE_ALIGN_CONTAIN, including its fixed-point scale rounding. */
+	int32_t ox = lv_obj_get_x(image) +
+		(lv_obj_get_width(image) - (int32_t)fmt->width * scale / LV_SCALE_NONE) / 2;
+	int32_t oy = lv_obj_get_y(image) +
+		(lv_obj_get_height(image) - (int32_t)fmt->height * scale / LV_SCALE_NONE) / 2;
+	for (size_t i = 0; i < SCANNER_ZXC_MAX_SYMBOLS; i++) {
+		bool show = valid && i < overlay.count;
+		lv_obj_set_hidden(barcode_outline[i], !show);
+		lv_obj_set_hidden(barcode_line[i], !show);
+		lv_obj_set_hidden(barcode_number[i], !show);
+		if (!show) { continue; }
+		int32_t left = INT_MAX, top = INT_MAX;
+		for (int j = 0; j < 4; j++) {
+			int32_t x = ox + overlay.symbols[i].x[j] * scale / LV_SCALE_NONE;
+			int32_t y = oy + overlay.symbols[i].y[j] * scale / LV_SCALE_NONE;
+			barcode_points[i][j] = (lv_point_precise_t){x, y};
+			left = MIN(left, x); top = MIN(top, y);
+		}
+		barcode_points[i][4] = barcode_points[i][0];
+		lv_line_set_points(barcode_outline[i], barcode_points[i], 5);
+		lv_line_set_points(barcode_line[i], barcode_points[i], 5);
+		lv_obj_set_pos(barcode_outline[i], 0, 0);
+		lv_obj_set_pos(barcode_line[i], 0, 0);
+		lv_obj_set_pos(barcode_number[i], left, MAX(oy, top - 24));
+	}
+}
+#endif
 #define FRAME_CAPACITY ROUND_UP(CONFIG_APP_CAMERA_FRAME_CAPACITY, 32)
 #define PREVIEW_SIZE   (CONFIG_APP_CAMERA_MAX_WIDTH * CONFIG_APP_CAMERA_MAX_HEIGHT * 2)
 static K_MUTEX_DEFINE(camera_control_lock);
@@ -275,6 +342,7 @@ static void camera_capture_frame(const struct video_buffer *vbuf, const struct v
 		memcpy(snapshot_fourcc, VIDEO_FOURCC_TO_STR(fmt->pixelformat), 5);
 		memcpy(snapshot, vbuf->buffer, snapshot_size);
 		snapshot_crc = crc32_ieee(snapshot, snapshot_size);
+		scanner_zxc_submit(vbuf, fmt, snapshot_id);
 		state = SNAPSHOT_READY;
 	}
 	k_mutex_unlock(&snapshot_lock);
@@ -699,6 +767,17 @@ static int _main(void)
 			lv_display_get_vertical_resolution(NULL));
 	lv_image_set_inner_align(screen, LV_IMAGE_ALIGN_CONTAIN);
 	lv_obj_center(screen);
+#ifdef CONFIG_APP_CAMERA_BARCODE
+	barcode_overlay_create();
+	lv_obj_t *barcode_label = lv_label_create(lv_screen_active());
+	lv_obj_set_width(barcode_label, lv_display_get_horizontal_resolution(NULL));
+	lv_obj_align(barcode_label, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+	lv_obj_set_style_bg_color(barcode_label, lv_color_black(), 0);
+	lv_obj_set_style_bg_opa(barcode_label, LV_OPA_80, 0);
+	lv_obj_set_style_text_color(barcode_label, lv_color_white(), 0);
+	lv_obj_set_style_pad_all(barcode_label, 6, 0);
+	lv_label_set_text(barcode_label, "ZXC: starting...");
+#endif
 	k_mutex_lock(&camera_control_lock, K_FOREVER);
 	current_format = fmt;
 	camera_ready = true;
@@ -725,6 +804,9 @@ static int _main(void)
 			/* Preserve native bytes, including planes/padding, before any LCD
 			 * conversion. */
 			camera_capture_frame(vbuf, &fmt);
+			if (vbuf->bytesused == fmt.size) {
+				scanner_zxc_submit(vbuf, &fmt, 0);
+			}
 			camera_format = NULL;
 			for (size_t i = 0; i < ARRAY_SIZE(pixel_formats); i++) {
 				if (pixel_formats[i].fourcc == fmt.pixelformat) {
@@ -751,6 +833,9 @@ static int _main(void)
 			} else {
 				lv_obj_set_hidden(screen, true);
 			}
+#ifdef CONFIG_APP_CAMERA_BARCODE
+			barcode_overlay_update(screen, barcode_label, &fmt, video_img.data != NULL);
+#endif
 			lv_timer_handler();
 			lv_refr_now(NULL);
 			lv_draw_wait_for_finish();

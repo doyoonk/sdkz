@@ -9,6 +9,11 @@
 # You can browse these options using the west targets menuconfig (terminal) or
 # guiconfig (GUI).
 
+# App defaults must precede the upstream ZXC module defaults.
+choice ZXC_ALLOCATOR_BACKEND
+	default ZXC_ALLOCATOR_CUSTOM if VIDEO_BUFFER_USE_SHARED_MULTI_HEAP
+endchoice
+
 menu "Zephyr"
 source "Kconfig.zephyr"
 endmenu
@@ -117,6 +122,46 @@ config APP_CAMERA_MAX_HEIGHT
 config VIDEO_VFLIP
 	bool "Vertical flip"
 	default n
+
+config APP_CAMERA_BARCODE
+	bool "Recognize camera barcodes with ZXC"
+	depends on APP_CAMERA_CAPTURE && VIDEO_BUFFER_USE_SHARED_MULTI_HEAP
+	depends on ZXC
+	help
+	  Scan all ZXC default readable formats in a separate thread. Image and
+	  heap0 workspace use the video shared heap. Heap1 uses the selected ZXC
+	  allocator (the video shared heap by default when enabled). LCD and HU expose
+	  results; requested HU snapshots are decoded from the same source frame.
+
+if APP_CAMERA_BARCODE
+
+config APP_CAMERA_BARCODE_WIDTH
+	int "Maximum recognition width"
+	default 800
+	range 48 1920
+
+config APP_CAMERA_BARCODE_HEIGHT
+	int "Maximum recognition height"
+	default 480
+	range 32 1080
+
+config APP_CAMERA_BARCODE_INTERVAL_MS
+	int "Periodic recognition interval (milliseconds)"
+	default 2000
+	range 100 60000
+
+config APP_CAMERA_BARCODE_STACK_SIZE
+	int "Recognition thread stack size"
+	default 32768
+	range 8192 131072
+
+config APP_CAMERA_BARCODE_WORKSPACE_LIMIT
+	int "Maximum decoder workspace allocation (bytes)"
+	depends on !ZXC_USE_HEAP
+	default 6291456
+	range 524288 16777216
+
+endif
 
 endmenu
 

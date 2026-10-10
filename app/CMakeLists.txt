@@ -191,4 +191,9 @@ target_sources(app PRIVATE
     src/pwmleds.c
 )
 
+if(CONFIG_APP_CAMERA_BARCODE OR (CONFIG_ZXC_USE_HEAP AND
+   CONFIG_ZXC_ALLOCATOR_CUSTOM AND CONFIG_VIDEO_BUFFER_USE_SHARED_MULTI_HEAP))
+    target_sources(app PRIVATE src/scanner_zxc.c)
+endif()
+
 target_link_libraries(app PRIVATE ${MICROPY_TARGET})
