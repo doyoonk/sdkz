@@ -34,6 +34,14 @@ config BOARD_HAS_VBAT_BATTERY
 config MICROPYTHON
   bool "Micropython"
 
+config APP_PALLOC_SELF_TEST
+	bool "Test the TCM palloc pools at boot"
+	depends on HU_PALLOC
+	help
+	  Run allocation, reallocation, alignment and exhaustion checks after
+	  initializing an ITCM or DTCM pool and before starting its users.
+	  When both are enabled, also test both regions and cross-region moves.
+
 config MICROPYTHON_THREAD_STACK_SIZE
   int
   default 4736

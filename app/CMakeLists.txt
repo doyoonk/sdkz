@@ -197,3 +197,5 @@ if(CONFIG_APP_CAMERA_BARCODE OR (CONFIG_ZXC_USE_HEAP AND
 endif()
 
 target_link_libraries(app PRIVATE ${MICROPY_TARGET})
+
+target_sources_ifdef(CONFIG_APP_PALLOC_SELF_TEST app PRIVATE src/palloc_test.c)

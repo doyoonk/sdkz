@@ -36,6 +36,9 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 
 #include <hu/hupacket.h>
 #include <hu/palloc.h>
+#ifdef CONFIG_APP_PALLOC_SELF_TEST
+#include "palloc_test.h"
+#endif
 
 #if CONFIG_HU_APP
 #include <net_sample_common.h>
@@ -288,6 +291,110 @@ static int get_date_time(const struct device *rtc)
 }
 #endif
 
+#if CONFIG_HU_PALLOC
+#define APP_PALLOC_DTCM DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_dtcm), okay)
+#define APP_PALLOC_ITCM DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_itcm), okay)
+
+#if APP_PALLOC_DTCM || APP_PALLOC_ITCM
+static int palloc_add_tcm(uintptr_t start, uintptr_t base, uintptr_t end, const char *name)
+{
+	if (start < base || start >= end) {
+		LOG_ERR("No unused %s for palloc", name);
+		return -ENOMEM;
+	}
+#if CONFIG_SOC_SERIES_STM32N6X
+	/* Seed TCM ECC with full words before byte accesses. Preserve linked
+	 * objects; volatile prevents replacement with byte-oriented memset.
+	 */
+	for (volatile uint32_t *word = (void*)ROUND_UP(start, sizeof(uint32_t));
+		(uintptr_t)word + sizeof(*word) <= end; word++) {
+		*word = 0;
+	}
+	__DSB();
+#endif
+	size_t before = palloc_stats(NULL, NULL, NULL);
+	palloc_init((void*)start, (void*)end);
+	size_t after = palloc_stats(NULL, NULL, NULL);
+	if (after <= before) {
+		LOG_ERR("Cannot register %s palloc region", name);
+		return -ENOMEM;
+	}
+	LOG_INF("palloc %s [%p, %p): added %zu, total free %zu", name,
+		(void*)start, (void*)end, after - before, after);
+	return 0;
+}
+#endif
+
+static int palloc_add(void)
+{
+#if APP_PALLOC_DTCM || APP_PALLOC_ITCM
+	int rc;
+
+#if APP_PALLOC_DTCM
+	LOG_INF("dtcm size %d(0x%08x)"
+		, DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)), DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)));
+	LOG_INF("  start %p end %p", &__dtcm_start, &__dtcm_end);
+	LOG_INF("  bss start %p end %p", &__dtcm_bss_start, &__dtcm_bss_end);
+	LOG_INF("  noinit start %p end %p", &__dtcm_noinit_start, &__dtcm_noinit_end);
+	LOG_INF("  data start %p end %p", &__dtcm_data_start, &__dtcm_data_end);
+	LOG_INF("  data load start %p", &__dtcm_data_load_start);
+	uintptr_t pool_start = (uintptr_t)&__dtcm_end;
+	uintptr_t pool_base = DT_REG_ADDR(DT_CHOSEN(zephyr_dtcm));
+	uintptr_t pool_end = pool_base + DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm));
+#if DT_NODE_HAS_PROP(DT_CHOSEN(zephyr_dtcm), zephyr_memory_region)
+#define APP_DTCM_REGION_END UTIL_CAT(UTIL_CAT(__, \
+	DT_STRING_TOKEN(DT_CHOSEN(zephyr_dtcm), zephyr_memory_region)), _end)
+	extern char APP_DTCM_REGION_END[];
+	pool_start = MAX(pool_start, (uintptr_t)APP_DTCM_REGION_END);
+#endif
+	rc = palloc_add_tcm(pool_start, pool_base, pool_end, "DTCM");
+	if (rc != 0) return rc;
+#ifdef CONFIG_APP_PALLOC_SELF_TEST
+	rc = palloc_self_test(pool_start, pool_end, "DTCM");
+	if (rc != 0) {
+		LOG_ERR("palloc DTCM self-test failed: %d", rc);
+		return rc;
+	}
+#endif
+#endif
+
+#if APP_PALLOC_ITCM
+	LOG_INF("itcm size %d(0x%08x)"
+		, DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)), DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)));
+	LOG_INF("  start %p end %p size %d(0x%08x)"
+		, &__itcm_start, &__itcm_end, (size_t)&__itcm_size, (size_t)&__itcm_size);
+	LOG_INF("  data load start %p", &__itcm_load_start);
+	uintptr_t itcm_start = (uintptr_t)&__itcm_end;
+	uintptr_t itcm_base = DT_REG_ADDR(DT_CHOSEN(zephyr_itcm));
+	uintptr_t itcm_end = itcm_base + DT_REG_SIZE(DT_CHOSEN(zephyr_itcm));
+#if DT_NODE_HAS_PROP(DT_CHOSEN(zephyr_itcm), zephyr_memory_region)
+#define APP_ITCM_REGION_END UTIL_CAT(UTIL_CAT(__, \
+	DT_STRING_TOKEN(DT_CHOSEN(zephyr_itcm), zephyr_memory_region)), _end)
+	extern char APP_ITCM_REGION_END[];
+	itcm_start = MAX(itcm_start, (uintptr_t)APP_ITCM_REGION_END);
+#endif
+	rc = palloc_add_tcm(itcm_start, itcm_base, itcm_end, "ITCM");
+	if (rc != 0) return rc;
+#ifdef CONFIG_APP_PALLOC_SELF_TEST
+#if APP_PALLOC_DTCM
+	rc = palloc_multi_region_self_test(itcm_start, itcm_end, pool_start, pool_end);
+#else
+	rc = palloc_self_test(itcm_start, itcm_end, "ITCM");
+#endif
+	if (rc != 0) {
+		LOG_ERR("palloc self-test after ITCM registration failed: %d", rc);
+		return rc;
+	}
+#endif
+#endif
+	return 0;
+#else
+	LOG_ERR("HU palloc requires an enabled ITCM or DTCM region");
+	return -ENODEV;
+#endif
+}
+#endif
+
 int main(void)
 {
 	uint8_t partition_id = 0xff;
@@ -296,29 +403,10 @@ int main(void)
 
 	LOG_INF("Zephyr Example Application %s/0x%08x, %s, %s", APP_VERSION_STRING, APPVERSION, __DATE__ " " __TIME__, KERNEL_VERSION_EXTENDED_STRING);
 
-#if DT_NODE_EXISTS(DT_CHOSEN(zephyr_itcm))
-	LOG_INF("itcm size %d(0x%08x)"
-		, DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)), DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)));
-	LOG_INF("  start %p end %p size %d(0x%08x)"
-		, &__itcm_start, &__itcm_end, (size_t)&__itcm_size, (size_t)&__itcm_size);
-	LOG_INF("  data load start %p", &__itcm_load_start);
-#endif
-#if DT_NODE_EXISTS(DT_CHOSEN(zephyr_dtcm))
-	LOG_INF("dtcm size %d(0x%08x)"
-		, DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)), DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)));
-	LOG_INF("  start %p end %p", &__dtcm_start, &__dtcm_end);
-	LOG_INF("  bss start %p end %p", &__dtcm_bss_start, &__dtcm_bss_end);
-	LOG_INF("  noinit start %p end %p", &__dtcm_noinit_start, &__dtcm_noinit_end);
-	LOG_INF("  data start %p end %p", &__dtcm_data_start, &__dtcm_data_end);
-	LOG_INF("  data load start %p", &__dtcm_data_load_start);
 #if CONFIG_HU_PALLOC
-	LOG_INF("palloc start %p end 0x%08x, "
-		, &__dtcm_end
-		, (size_t)&__dtcm_end + (DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm))
-		- ((size_t)&__dtcm_end - (size_t)&__dtcm_start)));
-	palloc_init(&__dtcm_end, (void*)((size_t)&__dtcm_end + DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm))
-		- ((size_t)&__dtcm_end - (size_t)&__dtcm_start)));
-#endif
+	rc = palloc_add();
+	if (rc != 0)
+		return rc;
 #endif
 
 	init_app();
