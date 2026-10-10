@@ -70,6 +70,8 @@ flags are exposed instead of treating a capacity shortage as an empty success.
 Heap1 grows its internal buffers as needed, bounded by available shared memory;
 it has no fixed 6 MiB workspace cap. Allocation failures report ENOMEM.
 Heap0 remains supported with a default 6 MiB workspace cap.
+The decoder stack defaults to 32 KiB. STM32N6570-DK configures it to 8 KiB
+and the main thread stack to 1 KiB.
 
 All 16 N6 camera output formats have grayscale input adapters. YUV uses its
 native Y channel; RGB uses luminance conversion. Other formats such as encoded
