@@ -31,6 +31,13 @@
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/spi.h>
 
+/* Share Zephyr's libc printf family with the rest of the firmware.
+ * MicroPython's replacements do not implement all libc length modifiers
+ * (e.g. %zu and %lld used by the camera LCD status). Python output still
+ * uses mp_print/mp_hal_stdout_tx_strn and keeps its configured console.
+ */
+#define MICROPY_USE_INTERNAL_PRINTF (0)
+
 #if defined(CONFIG_MICROPY_CONFIG_ROM_LEVEL_MINIMUM)
 #define MICROPY_CONFIG_ROM_LEVEL (MICROPY_CONFIG_ROM_LEVEL_MINIMUM)
 #elif defined(CONFIG_MICROPY_CONFIG_ROM_LEVEL_CORE_FEATURES)
