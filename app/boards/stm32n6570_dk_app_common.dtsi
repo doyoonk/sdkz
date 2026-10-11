@@ -103,10 +103,6 @@
 	ranges = <0x34000000 0x24000000 DT_SIZE_K(3840)>;
 };
 
-&axisram1 {
-	reg = <0x34000000 DT_SIZE_K(3840)>;
-};
-
 &axisram3 {
 	status = "okay";
 };
