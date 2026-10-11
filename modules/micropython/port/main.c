@@ -44,6 +44,10 @@
 #ifdef CONFIG_CONSOLE_SUBSYS
 #include <zephyr/console/console.h>
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(micropy, LOG_LEVEL_INF);
+
+
 #if CONFIG_CONSOLE_GETCHAR_BUFSIZE < 512
 #warning A Console getchar buffer size over 512 bytes is recommended to handle fast input
 #endif
@@ -94,7 +98,12 @@ DT_FOREACH_STATUS_OKAY(micropython_heap, MICROPY_HEAP_DEFINE)
 #include "modmachine.h"
 #include "modzephyr.h"
 
+#if CONFIG_SHARED_MULTI_HEAP
+#include <zephyr/multi_heap/shared_multi_heap.h>
+static __noinit char* heap;
+#else
 static __noinit char heap[MICROPY_HEAP_SIZE];
+#endif
 
 #if 0 //defined(CONFIG_USB_DEVICE_STACK_NEXT)
 extern int mp_usbd_init(void);
@@ -149,7 +158,15 @@ int real_main(void) {
 soft_reset:
     mp_cstack_init_with_sp_here(CONFIG_MICROPYTHON_THREAD_STACK_SIZE);
     #if MICROPY_ENABLE_GC
-    gc_init(heap, heap + sizeof(heap));
+    #if CONFIG_SHARED_MULTI_HEAP
+    heap = shared_multi_heap_aligned_alloc(SMH_REG_ATTR_EXTERNAL, 16, MICROPY_HEAP_SIZE);
+    if (heap == NULL) {
+        LOG_ERR("Failed to get pointer to shared multi heap");
+        return -1;
+    }
+    LOG_INF("MicroPython running on Zephyr. stack size=%d heap as shared", z_thread->stack_info.size);
+    #endif
+    gc_init(heap, heap + MICROPY_HEAP_SIZE);
     #if MICROPY_GC_SPLIT_HEAP && DT_HAS_COMPAT_STATUS_OKAY(micropython_heap)
     DT_FOREACH_STATUS_OKAY(micropython_heap, MICROPY_HEAP_ADD)
     #endif
@@ -219,6 +236,12 @@ soft_reset_exit:
 
     gc_sweep_all();
     mp_deinit();
+
+    #if MICROPY_ENABLE_GC
+    #if CONFIG_SHARED_MULTI_HEAP
+    shared_multi_heap_free(heap);
+    #endif
+    #endif
 
     goto soft_reset;
 
