@@ -96,7 +96,7 @@
         status = "disabled";
 };
 
-/* One 32 KiB palloc region, backed by two independently clocked banks. */
+/* One 32 KiB heap region, backed by two independently clocked banks. */
 &ahbsram {
 	status = "okay";
 };
@@ -109,7 +109,7 @@
 	status = "okay";
 };
 
-/* Release the video encoder SRAM for palloc. */
+/* Release the video encoder SRAM for the selected heap. */
 &venc {
 	status = "disabled";
 };

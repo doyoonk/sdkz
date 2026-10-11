@@ -36,6 +36,9 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 
 #include <hu/hupacket.h>
 #include <hu/palloc.h>
+#ifdef CONFIG_SHARED_MULTI_HEAP
+#include <zephyr/multi_heap/shared_multi_heap.h>
+#endif
 #ifdef CONFIG_APP_PALLOC_SELF_TEST
 #include "palloc_test.h"
 #endif
@@ -291,24 +294,24 @@ static int get_date_time(const struct device *rtc)
 }
 #endif
 
-#if CONFIG_HU_PALLOC
-#define APP_PALLOC_DTCM DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_dtcm), okay)
-#define APP_PALLOC_ITCM DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_itcm), okay)
+#if defined(CONFIG_HU_PALLOC) || defined(CONFIG_SHARED_MULTI_HEAP)
+#define APP_SRAM_DTCM DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_dtcm), okay)
+#define APP_SRAM_ITCM DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_itcm), okay)
 
-#define APP_PALLOC_AHBSRAM (IS_ENABLED(CONFIG_STM32N6_EXTRA_SRAM) && \
+#define APP_SRAM_AHBSRAM (IS_ENABLED(CONFIG_STM32N6_EXTRA_SRAM) && \
 	DT_NODE_HAS_STATUS(DT_NODELABEL(ahbsram), okay))
-#define APP_PALLOC_VENCRAM (IS_ENABLED(CONFIG_STM32N6_EXTRA_SRAM) && \
+#define APP_SRAM_VENCRAM (IS_ENABLED(CONFIG_STM32N6_EXTRA_SRAM) && \
 	DT_NODE_HAS_STATUS(DT_NODELABEL(venc_ram), okay) && \
 	DT_NODE_HAS_STATUS(DT_NODELABEL(venc), disabled))
-#define APP_PALLOC_EXTRA_SRAM (APP_PALLOC_AHBSRAM || \
-	APP_PALLOC_VENCRAM)
+#define APP_SRAM_EXTRA (APP_SRAM_AHBSRAM || \
+	APP_SRAM_VENCRAM)
 
-#if APP_PALLOC_DTCM || APP_PALLOC_ITCM || APP_PALLOC_EXTRA_SRAM
-static int palloc_add_region(uintptr_t start, uintptr_t base, uintptr_t end, const char *name,
+#if APP_SRAM_DTCM || APP_SRAM_ITCM || APP_SRAM_EXTRA
+static int sram_add_region(uintptr_t start, uintptr_t base, uintptr_t end, const char *name,
 			     bool seed_tcm)
 {
 	if (start < base || start >= end) {
-		LOG_ERR("No unused %s for palloc", name);
+		LOG_ERR("No unused %s for the SRAM heap", name);
 		return -ENOMEM;
 	}
 #if CONFIG_SOC_SERIES_STM32N6X
@@ -325,6 +328,7 @@ static int palloc_add_region(uintptr_t start, uintptr_t base, uintptr_t end, con
 #else
 	ARG_UNUSED(seed_tcm);
 #endif
+#ifdef CONFIG_HU_PALLOC
 	size_t before = palloc_stats(NULL, NULL, NULL);
 	palloc_init((void*)start, (void*)end);
 	size_t after = palloc_stats(NULL, NULL, NULL);
@@ -334,19 +338,45 @@ static int palloc_add_region(uintptr_t start, uintptr_t base, uintptr_t end, con
 	}
 	LOG_INF("palloc %s [%p, %p): added %zu, total free %zu", name,
 		(void*)start, (void*)end, after - before, after);
+#else
+	/* TCM bypasses the cache; the extra SRAM nodes use ATTR_MPU_RAM.
+	 * Keep both classes separate from the existing EXTERNAL PSRAM pool.
+	 * NON_CACHEABLE describes caching only, not DMA accessibility.
+	 */
+	struct shared_multi_heap_region region = {
+		.attr = seed_tcm ? SMH_REG_ATTR_NON_CACHEABLE : SMH_REG_ATTR_CACHEABLE,
+		.addr = ROUND_UP(start, 8U),
+	};
+	uintptr_t aligned_end = ROUND_DOWN(end, 8U);
+
+	/* Leave room for sys_heap metadata and a usable allocation. */
+	if (region.addr >= aligned_end || aligned_end - region.addr < Z_HEAP_MIN_SIZE) {
+		LOG_ERR("Too little unused %s for shared multi heap", name);
+		return -ENOMEM;
+	}
+	region.size = aligned_end - region.addr;
+	int rc = shared_multi_heap_add(&region, NULL);
+
+	if (rc != 0) {
+		LOG_ERR("Cannot register %s shared heap: %d", name, rc);
+		return rc;
+	}
+	LOG_INF("shared heap %s [%p, %p): %zu bytes, attr %u", name,
+		(void *)region.addr, (void *)aligned_end, region.size, region.attr);
+#endif
 	return 0;
 }
 #endif
 
-#if APP_PALLOC_EXTRA_SRAM
-static int palloc_add_sram(const struct device *controller, uintptr_t start,
+#if APP_SRAM_EXTRA
+static int sram_add_device_region(const struct device *controller, uintptr_t start,
 			   uintptr_t base, uintptr_t end, const char *name)
 {
 	if (!device_is_ready(controller)) {
 		LOG_ERR("%s controller is not ready", name);
 		return -ENODEV;
 	}
-	int rc = palloc_add_region(start, base, end, name, false);
+	int rc = sram_add_region(start, base, end, name, false);
 
 #ifdef CONFIG_APP_PALLOC_SELF_TEST
 	if (rc == 0) {
@@ -357,24 +387,32 @@ static int palloc_add_sram(const struct device *controller, uintptr_t start,
 }
 
 /* The generated linker end symbol excludes objects placed in this SRAM. */
-#define APP_PALLOC_SRAM_ADD(node, controller) do {                                          \
+#define APP_SRAM_ADD_DEVICE(node, controller) do {                                          \
 	extern char UTIL_CAT(UTIL_CAT(__,                                       \
 		DT_STRING_TOKEN(node, zephyr_memory_region)), _end)[];           \
 	uintptr_t base = DT_REG_ADDR(node);                                     \
 	uintptr_t start = (uintptr_t)UTIL_CAT(UTIL_CAT(__,                        \
 		DT_STRING_TOKEN(node, zephyr_memory_region)), _end);             \
-	rc = palloc_add_sram(DEVICE_DT_GET(controller), start, base,          \
+	rc = sram_add_device_region(DEVICE_DT_GET(controller), start, base,          \
 		base + DT_REG_SIZE(node), DT_PROP(node, zephyr_memory_region));  \
 	if (rc != 0) { return rc; }                                              \
 } while (0)
 #endif
 
-static int palloc_add(void)
+static int sram_pools_init(void)
 {
-#if APP_PALLOC_DTCM || APP_PALLOC_ITCM || APP_PALLOC_EXTRA_SRAM
+#if !defined(CONFIG_HU_PALLOC) && defined(CONFIG_SHARED_MULTI_HEAP)
+	/* The PSRAM driver may already have initialized the common pool. */
+	int init_rc = shared_multi_heap_pool_init();
+
+	if (init_rc != 0 && init_rc != -EALREADY) {
+		return init_rc;
+	}
+#endif
+#if APP_SRAM_DTCM || APP_SRAM_ITCM || APP_SRAM_EXTRA
 	int rc;
 
-#if APP_PALLOC_DTCM
+#if APP_SRAM_DTCM
 	LOG_INF("dtcm size %d(0x%08x)"
 		, DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)), DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)));
 	LOG_INF("  start %p end %p", &__dtcm_start, &__dtcm_end);
@@ -391,7 +429,7 @@ static int palloc_add(void)
 	extern char APP_DTCM_REGION_END[];
 	pool_start = MAX(pool_start, (uintptr_t)APP_DTCM_REGION_END);
 #endif
-	rc = palloc_add_region(pool_start, pool_base, pool_end, "DTCM", true);
+	rc = sram_add_region(pool_start, pool_base, pool_end, "DTCM", true);
 	if (rc != 0) return rc;
 #ifdef CONFIG_APP_PALLOC_SELF_TEST
 	rc = palloc_self_test(pool_start, pool_end, "DTCM");
@@ -402,7 +440,7 @@ static int palloc_add(void)
 #endif
 #endif
 
-#if APP_PALLOC_ITCM
+#if APP_SRAM_ITCM
 	LOG_INF("itcm size %d(0x%08x)"
 		, DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)), DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)));
 	LOG_INF("  start %p end %p size %d(0x%08x)"
@@ -417,10 +455,10 @@ static int palloc_add(void)
 	extern char APP_ITCM_REGION_END[];
 	itcm_start = MAX(itcm_start, (uintptr_t)APP_ITCM_REGION_END);
 #endif
-	rc = palloc_add_region(itcm_start, itcm_base, itcm_end, "ITCM", true);
+	rc = sram_add_region(itcm_start, itcm_base, itcm_end, "ITCM", true);
 	if (rc != 0) return rc;
 #ifdef CONFIG_APP_PALLOC_SELF_TEST
-#if APP_PALLOC_DTCM
+#if APP_SRAM_DTCM
 	rc = palloc_multi_region_self_test(itcm_start, itcm_end, pool_start, pool_end);
 #else
 	rc = palloc_self_test(itcm_start, itcm_end, "ITCM");
@@ -431,7 +469,7 @@ static int palloc_add(void)
 	}
 #endif
 #endif
-#if APP_PALLOC_AHBSRAM
+#if APP_SRAM_AHBSRAM
 	BUILD_ASSERT(DT_NODE_HAS_STATUS(DT_NODELABEL(ahbsram1), okay) &&
 		     DT_NODE_HAS_STATUS(DT_NODELABEL(ahbsram2), okay),
 		     "AHBSRAM requires both AHB SRAM banks to be enabled");
@@ -444,20 +482,23 @@ static int palloc_add(void)
 		     DT_REG_SIZE(DT_NODELABEL(ahbsram1)) +
 		     DT_REG_SIZE(DT_NODELABEL(ahbsram2)),
 		     "AHBSRAM must cover both contiguous AHB SRAM banks");
-	/* palloc_add_sram checks bank 1; bank 2 must also be ready. */
+	/* sram_add_device_region checks bank 1; bank 2 must also be ready. */
 	if (!device_is_ready(DEVICE_DT_GET(DT_PARENT(DT_NODELABEL(ahbsram2))))) {
 		LOG_ERR("AHBSRAM2 controller is not ready");
 		return -ENODEV;
 	}
-	APP_PALLOC_SRAM_ADD(DT_NODELABEL(ahbsram), DT_PARENT(DT_NODELABEL(ahbsram1)));
+	APP_SRAM_ADD_DEVICE(DT_NODELABEL(ahbsram), DT_PARENT(DT_NODELABEL(ahbsram1)));
 #endif
-#if APP_PALLOC_VENCRAM
-	APP_PALLOC_SRAM_ADD(DT_NODELABEL(venc_ram), DT_PARENT(DT_NODELABEL(venc_ram)));
+#if APP_SRAM_VENCRAM
+	APP_SRAM_ADD_DEVICE(DT_NODELABEL(venc_ram), DT_PARENT(DT_NODELABEL(venc_ram)));
 #endif
 	return 0;
-#else
+#elif defined(CONFIG_HU_PALLOC)
 	LOG_ERR("HU palloc requires an enabled SRAM pool");
 	return -ENODEV;
+#else
+	/* No internal regions enabled; the existing shared pools remain usable. */
+	return 0;
 #endif
 }
 #endif
@@ -470,8 +511,8 @@ int main(void)
 
 	LOG_INF("Zephyr Example Application %s/0x%08x, %s, %s", APP_VERSION_STRING, APPVERSION, __DATE__ " " __TIME__, KERNEL_VERSION_EXTENDED_STRING);
 
-#if CONFIG_HU_PALLOC
-	rc = palloc_add();
+#if defined(CONFIG_HU_PALLOC) || defined(CONFIG_SHARED_MULTI_HEAP)
+	rc = sram_pools_init();
 	if (rc != 0)
 		return rc;
 #endif
