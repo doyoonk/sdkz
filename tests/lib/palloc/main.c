@@ -286,6 +286,54 @@ static void test_boot_self_tests(void)
     check_pool();
 }
 
+static void test_extra_sram_self_tests(void)
+{
+    /* Simulate five banks, including adjacent AHB banks and a reserved prefix. */
+    static const size_t ranges[][2] = {
+        {0, 8192}, {16384, 32768}, {49152 + 128, 53248},
+        {53248, 57344}, {32768, 49152},
+    };
+    reset_pool();
+    for (size_t i = 0; i < ARRAY_SIZE(ranges); i++) {
+        unsigned char *start = arena + ranges[i][0];
+        unsigned char *end = arena + ranges[i][1];
+        palloc_init(start, end);
+        assert(palloc_added_region_self_test((uintptr_t)start, (uintptr_t)end,
+            "extra SRAM") == 0);
+        check_pool();
+    }
+    check_bytes(arena + 8192, 8192, 0xa5);
+    check_bytes(arena + 49152, 128, 0xa5);
+    check_bytes(arena + 57344, sizeof(arena) - 57344, 0xa5);
+}
+
+static void test_merged_ahbsram(void)
+{
+    reset_pool();
+    /* Reserve a linked prefix, then register both 16 KiB banks as one pool. */
+    unsigned char *base = arena + 16384;
+    unsigned char *start = base + 128;
+    unsigned char *end = base + 32768;
+    palloc_init(start, end);
+    size_t initial = palloc_stats(NULL, NULL, NULL);
+    assert(palloc_added_region_self_test((uintptr_t)start, (uintptr_t)end,
+        "AHBSRAM") == 0);
+    uint8_t *p = palloc(24576);
+    assert(p != NULL && p < base + 16384 && p + 24576 > base + 16384);
+    memset(p, 0x3c, 24576);
+    uint8_t *q = prealloc(p, 30720);
+    assert(q == p && q + 30720 <= end);
+    check_bytes(q, 24576, 0x3c);
+    memset(q, 0xc3, 30720);
+    check_bytes(q, 30720, 0xc3);
+    pfree(q);
+    size_t links;
+    assert(palloc_stats(NULL, NULL, &links) == initial && links == 1);
+    check_bytes(base, 128, 0xa5);
+    check_bytes(end, (size_t)(arena + sizeof(arena) - end), 0xa5);
+    check_pool();
+}
+
 int main(void)
 {
     test_reallocation();
@@ -295,6 +343,8 @@ int main(void)
     test_lock_interleavings();
     test_concurrency();
     test_boot_self_tests();
+    test_extra_sram_self_tests();
+    test_merged_ahbsram();
     puts("palloc: realloc, bounds, overflow, alignment, stats and 24000 threaded operations passed");
     return 0;
 }

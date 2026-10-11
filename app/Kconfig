@@ -32,12 +32,13 @@ config BOARD_HAS_VBAT_BATTERY
     retain their content when the main power supply is turned off.
 
 config APP_PALLOC_SELF_TEST
-	bool "Test the TCM palloc pools at boot"
+	bool "Test the palloc SRAM pools at boot"
 	depends on HU_PALLOC
 	help
 	  Run allocation, reallocation, alignment and exhaustion checks after
 	  initializing an ITCM or DTCM pool and before starting its users.
 	  When both are enabled, also test both regions and cross-region moves.
+	  Check each additional AHB SRAM or video SRAM pool after registration.
 
 mainmenu "Video capture to LVGL sample application"
 

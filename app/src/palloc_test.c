@@ -7,6 +7,7 @@
 #include "palloc_test.h"
 #include <hu/palloc.h>
 #include <zephyr/kernel.h>
+#include <zephyr/cache.h>
 #include <zephyr/logging/log.h>
 #include <errno.h>
 #include <stddef.h>
@@ -167,4 +168,60 @@ out:
     pfree(p);
     return rc;
 #undef CHECK
+}
+
+/* Hold larger/earlier pools until an allocation reaches the newly added bank. */
+int palloc_added_region_self_test(uintptr_t start, uintptr_t end, const char *name)
+{
+    void *held[8] = {0};
+    size_t initial_largest, initial_smallest, initial_links;
+    size_t initial = palloc_stats(&initial_largest, &initial_smallest, &initial_links);
+    int rc = -EFAULT;
+    bool tested = false;
+
+    for (size_t i = 0; i < ARRAY_SIZE(held); i++) {
+        size_t largest;
+        palloc_stats(&largest, NULL, NULL);
+        if (largest == 0) break;
+        uint8_t *p = palloc(largest);
+        if (p == NULL) goto out;
+        held[i] = p;
+        if (!in_pool(p, largest, start, end)) continue;
+
+        /* Exercise the whole payload, including physical RAM behind D-cache. */
+        memset(p, 0x5a, largest);
+        int cache_rc = sys_cache_data_flush_and_invd_range(p, largest);
+        if (cache_rc != 0 && cache_rc != -ENOTSUP) goto out;
+        if (!bytes_equal(p, largest, 0x5a)) goto out;
+        memset(p, 0xa5, largest);
+        cache_rc = sys_cache_data_flush_and_invd_range(p, largest);
+        if (cache_rc != 0 && cache_rc != -ENOTSUP) goto out;
+        if (!bytes_equal(p, largest, 0xa5)) goto out;
+
+        uint8_t *q = prealloc(p, 32);
+        if (q == NULL) goto out;
+        held[i] = q;
+        if (q != p || !bytes_equal(q, 32, 0xa5)) goto out;
+        q = prealloc(q, largest);
+        if (q == NULL) goto out;
+        held[i] = q;
+        if (!in_pool(q, largest, start, end) || !bytes_equal(q, 32, 0xa5)) goto out;
+        tested = true;
+        break;
+    }
+    if (tested) rc = 0;
+out:
+    for (size_t i = 0; i < ARRAY_SIZE(held); i++) pfree(held[i]);
+    size_t largest, smallest, links;
+    if (palloc_stats(&largest, &smallest, &links) != initial ||
+        largest != initial_largest || smallest != initial_smallest || links != initial_links) {
+        rc = -EFAULT;
+    }
+    if (rc == 0) {
+        LOG_INF("PASS %s [%p, %p): memory patterns/realloc, free %zu, regions %zu",
+            name, (void*)start, (void*)end, initial, links);
+    } else {
+        LOG_ERR("%s palloc self-test failed", name);
+    }
+    return rc;
 }

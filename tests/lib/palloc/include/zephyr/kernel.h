@@ -14,6 +14,7 @@
 #endif
 #define DT_NODE_EXISTS(node) TEST_HAS_DTCM
 #define DT_CHOSEN(name) 1
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #define K_FOREVER (-1)
 struct k_sem { pthread_mutex_t lock; };
 #define K_SEM_DEFINE(name, initial, limit) struct k_sem name = {PTHREAD_MUTEX_INITIALIZER}

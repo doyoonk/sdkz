@@ -96,6 +96,28 @@
         status = "disabled";
 };
 
+/* One 32 KiB palloc region, backed by two independently clocked banks. */
+&ahbsram {
+	status = "okay";
+};
+
+&ahbsram1 {
+	status = "okay";
+};
+
+&ahbsram2 {
+	status = "okay";
+};
+
+/* Release the video encoder SRAM for palloc. */
+&venc {
+	status = "disabled";
+};
+
+&venc_ram {
+	status = "okay";
+};
+
 &timers1 {
 	status = "okay";
 	st,countermode = <0x10>; /* downcounter */

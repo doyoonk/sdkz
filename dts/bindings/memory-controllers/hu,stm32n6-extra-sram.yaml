@@ -1,0 +1,24 @@
+# Copyright (c) 2025 HU Inc. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  STM32N6 AHBSRAM1/2 and VENCRAM configuration. Unlike AXISRAM2-6, these
+  banks do not use the AXISRAM power-down control. VENCRAM may be released
+  to the system only when the VENC node is explicitly disabled.
+
+compatible: "hu,stm32n6-extra-sram"
+
+include: base.yaml
+
+properties:
+  reg:
+    required: true
+  clocks:
+    required: true
+    description: SRAM memory clock and RAMCFG controller clock.
+  clock-names:
+    required: true
+    description: Names must be "sram" and "ramcfg".
+  venc-shared:
+    type: boolean
+    description: This bank is shared with the VENC hardware.

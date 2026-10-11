@@ -1,0 +1,13 @@
+# Copyright (c) 2025 HU Inc. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+config STM32N6_EXTRA_SRAM
+	bool "STM32N6 AHB SRAM and video SRAM initialization"
+	default y
+	depends on SOC_SERIES_STM32N6X
+	depends on DT_HAS_HU_STM32N6_EXTRA_SRAM_ENABLED
+	depends on CLOCK_CONTROL
+	help
+	  Enable the clocks for AHBSRAM1/2 and VENCRAM. Release VENCRAM for
+	  system use only when the VENC devicetree node is explicitly disabled.
+	  Only controllers with an enabled memory child are initialized.

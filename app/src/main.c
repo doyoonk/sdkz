@@ -295,8 +295,17 @@ static int get_date_time(const struct device *rtc)
 #define APP_PALLOC_DTCM DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_dtcm), okay)
 #define APP_PALLOC_ITCM DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_itcm), okay)
 
-#if APP_PALLOC_DTCM || APP_PALLOC_ITCM
-static int palloc_add_tcm(uintptr_t start, uintptr_t base, uintptr_t end, const char *name)
+#define APP_PALLOC_AHBSRAM (IS_ENABLED(CONFIG_STM32N6_EXTRA_SRAM) && \
+	DT_NODE_HAS_STATUS(DT_NODELABEL(ahbsram), okay))
+#define APP_PALLOC_VENCRAM (IS_ENABLED(CONFIG_STM32N6_EXTRA_SRAM) && \
+	DT_NODE_HAS_STATUS(DT_NODELABEL(venc_ram), okay) && \
+	DT_NODE_HAS_STATUS(DT_NODELABEL(venc), disabled))
+#define APP_PALLOC_EXTRA_SRAM (APP_PALLOC_AHBSRAM || \
+	APP_PALLOC_VENCRAM)
+
+#if APP_PALLOC_DTCM || APP_PALLOC_ITCM || APP_PALLOC_EXTRA_SRAM
+static int palloc_add_region(uintptr_t start, uintptr_t base, uintptr_t end, const char *name,
+			     bool seed_tcm)
 {
 	if (start < base || start >= end) {
 		LOG_ERR("No unused %s for palloc", name);
@@ -306,11 +315,15 @@ static int palloc_add_tcm(uintptr_t start, uintptr_t base, uintptr_t end, const 
 	/* Seed TCM ECC with full words before byte accesses. Preserve linked
 	 * objects; volatile prevents replacement with byte-oriented memset.
 	 */
-	for (volatile uint32_t *word = (void*)ROUND_UP(start, sizeof(uint32_t));
-		(uintptr_t)word + sizeof(*word) <= end; word++) {
-		*word = 0;
+	if (seed_tcm) {
+		for (volatile uint32_t *word = (void*)ROUND_UP(start, sizeof(uint32_t));
+			(uintptr_t)word + sizeof(*word) <= end; word++) {
+			*word = 0;
+		}
+		__DSB();
 	}
-	__DSB();
+#else
+	ARG_UNUSED(seed_tcm);
 #endif
 	size_t before = palloc_stats(NULL, NULL, NULL);
 	palloc_init((void*)start, (void*)end);
@@ -325,9 +338,40 @@ static int palloc_add_tcm(uintptr_t start, uintptr_t base, uintptr_t end, const 
 }
 #endif
 
+#if APP_PALLOC_EXTRA_SRAM
+static int palloc_add_sram(const struct device *controller, uintptr_t start,
+			   uintptr_t base, uintptr_t end, const char *name)
+{
+	if (!device_is_ready(controller)) {
+		LOG_ERR("%s controller is not ready", name);
+		return -ENODEV;
+	}
+	int rc = palloc_add_region(start, base, end, name, false);
+
+#ifdef CONFIG_APP_PALLOC_SELF_TEST
+	if (rc == 0) {
+		rc = palloc_added_region_self_test(start, end, name);
+	}
+#endif
+	return rc;
+}
+
+/* The generated linker end symbol excludes objects placed in this SRAM. */
+#define APP_PALLOC_SRAM_ADD(node, controller) do {                                          \
+	extern char UTIL_CAT(UTIL_CAT(__,                                       \
+		DT_STRING_TOKEN(node, zephyr_memory_region)), _end)[];           \
+	uintptr_t base = DT_REG_ADDR(node);                                     \
+	uintptr_t start = (uintptr_t)UTIL_CAT(UTIL_CAT(__,                        \
+		DT_STRING_TOKEN(node, zephyr_memory_region)), _end);             \
+	rc = palloc_add_sram(DEVICE_DT_GET(controller), start, base,          \
+		base + DT_REG_SIZE(node), DT_PROP(node, zephyr_memory_region));  \
+	if (rc != 0) { return rc; }                                              \
+} while (0)
+#endif
+
 static int palloc_add(void)
 {
-#if APP_PALLOC_DTCM || APP_PALLOC_ITCM
+#if APP_PALLOC_DTCM || APP_PALLOC_ITCM || APP_PALLOC_EXTRA_SRAM
 	int rc;
 
 #if APP_PALLOC_DTCM
@@ -347,7 +391,7 @@ static int palloc_add(void)
 	extern char APP_DTCM_REGION_END[];
 	pool_start = MAX(pool_start, (uintptr_t)APP_DTCM_REGION_END);
 #endif
-	rc = palloc_add_tcm(pool_start, pool_base, pool_end, "DTCM");
+	rc = palloc_add_region(pool_start, pool_base, pool_end, "DTCM", true);
 	if (rc != 0) return rc;
 #ifdef CONFIG_APP_PALLOC_SELF_TEST
 	rc = palloc_self_test(pool_start, pool_end, "DTCM");
@@ -373,7 +417,7 @@ static int palloc_add(void)
 	extern char APP_ITCM_REGION_END[];
 	itcm_start = MAX(itcm_start, (uintptr_t)APP_ITCM_REGION_END);
 #endif
-	rc = palloc_add_tcm(itcm_start, itcm_base, itcm_end, "ITCM");
+	rc = palloc_add_region(itcm_start, itcm_base, itcm_end, "ITCM", true);
 	if (rc != 0) return rc;
 #ifdef CONFIG_APP_PALLOC_SELF_TEST
 #if APP_PALLOC_DTCM
@@ -387,9 +431,32 @@ static int palloc_add(void)
 	}
 #endif
 #endif
+#if APP_PALLOC_AHBSRAM
+	BUILD_ASSERT(DT_NODE_HAS_STATUS(DT_NODELABEL(ahbsram1), okay) &&
+		     DT_NODE_HAS_STATUS(DT_NODELABEL(ahbsram2), okay),
+		     "AHBSRAM requires both AHB SRAM banks to be enabled");
+	BUILD_ASSERT(DT_REG_ADDR(DT_NODELABEL(ahbsram)) ==
+		     DT_REG_ADDR(DT_NODELABEL(ahbsram1)) &&
+		     DT_REG_ADDR(DT_NODELABEL(ahbsram2)) ==
+		     DT_REG_ADDR(DT_NODELABEL(ahbsram1)) +
+		     DT_REG_SIZE(DT_NODELABEL(ahbsram1)) &&
+		     DT_REG_SIZE(DT_NODELABEL(ahbsram)) ==
+		     DT_REG_SIZE(DT_NODELABEL(ahbsram1)) +
+		     DT_REG_SIZE(DT_NODELABEL(ahbsram2)),
+		     "AHBSRAM must cover both contiguous AHB SRAM banks");
+	/* palloc_add_sram checks bank 1; bank 2 must also be ready. */
+	if (!device_is_ready(DEVICE_DT_GET(DT_PARENT(DT_NODELABEL(ahbsram2))))) {
+		LOG_ERR("AHBSRAM2 controller is not ready");
+		return -ENODEV;
+	}
+	APP_PALLOC_SRAM_ADD(DT_NODELABEL(ahbsram), DT_PARENT(DT_NODELABEL(ahbsram1)));
+#endif
+#if APP_PALLOC_VENCRAM
+	APP_PALLOC_SRAM_ADD(DT_NODELABEL(venc_ram), DT_PARENT(DT_NODELABEL(venc_ram)));
+#endif
 	return 0;
 #else
-	LOG_ERR("HU palloc requires an enabled ITCM or DTCM region");
+	LOG_ERR("HU palloc requires an enabled SRAM pool");
 	return -ENODEV;
 #endif
 }

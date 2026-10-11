@@ -23,46 +23,43 @@
 			/* Default use the secure addresses range */
 			ranges = <0x0 0x50000000 0x10000000>;
 			ramcfg_sram1_ahb: ramcfg@2023300 {
-				compatible = "st,stm32n6-ramcfg";
+				compatible = "hu,stm32n6-extra-sram";
 				#address-cells = <1>;
 				#size-cells = <1>;
 				reg = <0x2023300 0x80>;
 				clocks = <&rcc STM32_CLOCK(MEM, 4)>, <&rcc STM32_CLOCK(AHB2, 12)>;
-				clock-names = "axisram", "ramcfg";
+				clock-names = "sram", "ramcfg";
 				ranges = <0x0 0x38000000 DT_SIZE_K(16)>;
 
 				ahbsram1: memory@0 {
-					compatible = "zephyr,memory-region", "mmio-sram";
-					zephyr,memory-region = "AHBSRAM1";
-					zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+					compatible = "mmio-sram";
 					reg = <0x0 DT_SIZE_K(16)>;
 					status = "disabled";
 				};
 			};
 			ramcfg_sram2_ahb: ramcfg@2023380 {
-				compatible = "st,stm32n6-ramcfg";
+				compatible = "hu,stm32n6-extra-sram";
 				#address-cells = <1>;
 				#size-cells = <1>;
 				reg = <0x2023380 0x80>;
 				clocks = <&rcc STM32_CLOCK(MEM, 5)>, <&rcc STM32_CLOCK(AHB2, 12)>;
-				clock-names = "axisram", "ramcfg";
+				clock-names = "sram", "ramcfg";
 				ranges = <0x0 0x38004000 DT_SIZE_K(16)>;
 
 				ahbsram2: memory@0 {
-					compatible = "zephyr,memory-region", "mmio-sram";
-					zephyr,memory-region = "AHBSRAM2";
-					zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+					compatible = "mmio-sram";
 					reg = <0x0 DT_SIZE_K(16)>;
 					status = "disabled";
 				};
 			};
 			ramcfg_venc_ram: ramcfg@2023400 {
-				compatible = "st,stm32n6-ramcfg";
+				compatible = "hu,stm32n6-extra-sram";
 				#address-cells = <1>;
 				#size-cells = <1>;
 				reg = <0x2023400 0x80>;
-				clocks = <&rcc STM32_CLOCK(MEM, 11)>, <&rcc STM32_CLOCK(APB5, 5)>;
-				clock-names = "axisram", "ramcfg";
+				venc-shared;
+				clocks = <&rcc STM32_CLOCK(MEM, 11)>, <&rcc STM32_CLOCK(AHB2, 12)>;
+				clock-names = "sram", "ramcfg";
 				ranges = <0x0 0x34400000 DT_SIZE_K(128)>;
 
 				venc_ram: memory@0 {
@@ -90,7 +87,12 @@
 		status = "disabled";
 	};
 
+	/* Both banks share one linker/MPU region; their clocks remain separate. */
 	ahbsram: memory@38000000 {
-		reg = <0x38000000 (DT_SIZE_K(16) + DT_SIZE_K(16))>;
+		compatible = "zephyr,memory-region", "mmio-sram";
+		reg = <0x38000000 DT_SIZE_K(32)>;
+		zephyr,memory-region = "AHBSRAM";
+		zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+		status = "disabled";
 	};
 };
