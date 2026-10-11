@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../../../app/src/palloc_test.h"
+#include "../../../app/src/heap_test.h"
 
 _Thread_local void (*test_before_lock)(void);
 _Thread_local void (*test_after_unlock)(void);

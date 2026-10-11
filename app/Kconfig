@@ -31,14 +31,15 @@ config BOARD_HAS_VBAT_BATTERY
     the VBAT pin of the MCU. This allows the RTC and backup registers to
     retain their content when the main power supply is turned off.
 
-config APP_PALLOC_SELF_TEST
-	bool "Test the palloc SRAM pools at boot"
-	depends on HU_PALLOC
+config APP_HEAP_SELF_TEST
+	bool "Test the selected SRAM heap at boot"
+	depends on HU_PALLOC || SHARED_MULTI_HEAP
 	help
-	  Run allocation, reallocation, alignment and exhaustion checks after
-	  initializing an ITCM or DTCM pool and before starting its users.
-	  When both are enabled, also test both regions and cross-region moves.
-	  Check each additional AHB SRAM or video SRAM pool after registration.
+	  Test unused SRAM pools immediately after registration at boot.
+	  HU palloc takes priority; otherwise test the shared multi heap.
+	  Check allocation, alignment, memory patterns, reallocation and
+	  data preservation, then release every test allocation.
+	  A failed check stops application startup and reports an error.
 
 mainmenu "Video capture to LVGL sample application"
 

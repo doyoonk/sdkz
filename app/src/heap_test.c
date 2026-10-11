@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "palloc_test.h"
+#include "heap_test.h"
 #include <hu/palloc.h>
 #include <zephyr/kernel.h>
 #include <zephyr/cache.h>
@@ -13,14 +13,7 @@
 #include <stddef.h>
 #include <string.h>
 
-LOG_MODULE_REGISTER(palloc_test, CONFIG_LOG_DEFAULT_LEVEL);
-
-static bool in_pool(const void *p, size_t size, uintptr_t start, uintptr_t end)
-{
-    uintptr_t address = (uintptr_t)p;
-    return p != NULL && address >= start && address < end &&
-        size <= end - address && address % _Alignof(max_align_t) == 0;
-}
+LOG_MODULE_REGISTER(heap_test, CONFIG_LOG_DEFAULT_LEVEL);
 
 static bool bytes_equal(const uint8_t *p, size_t size, uint8_t value)
 {
@@ -28,6 +21,14 @@ static bool bytes_equal(const uint8_t *p, size_t size, uint8_t value)
         if (p[i] != value) return false;
     }
     return true;
+}
+
+#if CONFIG_HU_PALLOC
+static bool in_pool(const void *p, size_t size, uintptr_t start, uintptr_t end)
+{
+    uintptr_t address = (uintptr_t)p;
+    return p != NULL && address >= start && address < end &&
+        size <= end - address && address % _Alignof(max_align_t) == 0;
 }
 
 /* Called before HU users start; every successful test leaves the pool intact. */
@@ -225,3 +226,152 @@ out:
     }
     return rc;
 }
+
+#endif /* CONFIG_HU_PALLOC */
+
+#if !CONFIG_HU_PALLOC && defined(CONFIG_SHARED_MULTI_HEAP)
+#include <zephyr/multi_heap/shared_multi_heap.h>
+#include <zephyr/sys/multi_heap.h>
+
+#define SHARED_TEST_ALIGNMENT 32U
+
+/* Find the largest aligned payload through the public, locked API. The
+ * half-address-space limit leaves headroom for allocator size arithmetic.
+ * Each probe is freed immediately; no allocator metadata is accessed.
+ */
+static size_t shared_largest(enum shared_multi_heap_attr attr)
+{
+    size_t low = 0;
+    size_t high = (SIZE_MAX / 2) / SHARED_TEST_ALIGNMENT;
+
+    while (low < high) {
+        size_t mid = low + (high - low + 1) / 2;
+        void *p = shared_multi_heap_aligned_alloc(attr, SHARED_TEST_ALIGNMENT,
+            mid * SHARED_TEST_ALIGNMENT);
+
+        if (p != NULL) {
+            shared_multi_heap_free(p);
+            low = mid;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return low * SHARED_TEST_ALIGNMENT;
+}
+
+static bool shared_in_region(const void *p, size_t size, uintptr_t start, uintptr_t end)
+{
+    uintptr_t addr = (uintptr_t)p;
+
+    return p != NULL && addr >= start && addr < end && size <= end - addr;
+}
+
+static bool shared_pattern(uint8_t *p, size_t size, uint8_t value,
+    enum shared_multi_heap_attr attr)
+{
+    memset(p, value, size);
+    if (attr != SMH_REG_ATTR_NON_CACHEABLE) {
+        int rc = sys_cache_data_flush_and_invd_range(p, size);
+
+        if (rc != 0 && rc != -ENOTSUP) return false;
+    }
+    return bytes_equal(p, size, value);
+}
+
+/* Run immediately after adding the region, before application heap users.
+ * Temporarily hold larger pools of the same attribute until the new region
+ * is reached. Only owned allocations are touched, and all exits free them.
+ */
+int shared_heap_self_test(uintptr_t start, uintptr_t end, const char *name,
+    unsigned int attr_value)
+{
+    enum shared_multi_heap_attr attr = (enum shared_multi_heap_attr)attr_value;
+    void *held[MAX_MULTI_HEAPS] = {0};
+    uint8_t *p = NULL, *guard = NULL, *q;
+    size_t payload = 0, initial_largest = 0;
+    unsigned checks = 0;
+    bool moved = false;
+    int rc = -EFAULT;
+#define CHECK(condition) do { \
+    if (!(condition)) { \
+        LOG_ERR("shared %s check failed at line %d", name, __LINE__); \
+        goto out; \
+    } \
+    checks++; \
+} while (0)
+
+    CHECK(start < end && attr_value < MAX_SHARED_MULTI_HEAP_ATTR);
+    initial_largest = shared_largest(attr);
+    for (size_t i = 0; i < ARRAY_SIZE(held); i++) {
+        payload = shared_largest(attr);
+        CHECK(payload >= 256);
+        p = shared_multi_heap_aligned_alloc(attr, SHARED_TEST_ALIGNMENT, payload);
+        CHECK(p != NULL);
+        if (shared_in_region(p, payload, start, end)) break;
+        held[i] = p;
+        p = NULL;
+    }
+    CHECK(shared_in_region(p, payload, start, end));
+    CHECK((uintptr_t)p % SHARED_TEST_ALIGNMENT == 0);
+    CHECK(shared_pattern(p, payload, 0x5a, attr));
+    CHECK(shared_pattern(p, payload, 0xa5, attr));
+
+    /* A rejected growth must leave the original allocation untouched. */
+    q = shared_multi_heap_realloc(attr, p, SIZE_MAX / 2);
+    if (q != NULL) {
+        p = q;
+        CHECK(false);
+    }
+    CHECK(bytes_equal(p, payload, 0xa5));
+    q = shared_multi_heap_realloc(attr, p, 64);
+    CHECK(q != NULL);
+    p = q;
+    CHECK(shared_in_region(p, 64, start, end) && bytes_equal(p, 64, 0xa5));
+    q = shared_multi_heap_realloc(attr, p, payload);
+    CHECK(q != NULL);
+    p = q;
+    CHECK(shared_in_region(p, payload, start, end) && bytes_equal(p, 64, 0xa5));
+    CHECK(shared_pattern(p, payload, 0x3c, attr));
+    q = shared_multi_heap_realloc(attr, p, 64);
+    CHECK(q != NULL);
+    p = q;
+    CHECK(shared_in_region(p, 64, start, end) && bytes_equal(p, 64, 0x3c));
+
+    /* A plain allocation may come from any pool of this attribute. Keep
+     * the original region's block for the cross-region realloc below.
+     */
+    guard = shared_multi_heap_alloc(attr, 256);
+    CHECK(guard != NULL && (uintptr_t)guard % sizeof(void *) == 0);
+    memset(guard, 0xc3, 256);
+    CHECK(bytes_equal(guard, 256, 0xc3) && bytes_equal(p, 64, 0x3c));
+    shared_multi_heap_free(guard);
+    guard = NULL;
+
+    for (size_t i = 0; i < ARRAY_SIZE(held); i++) {
+        shared_multi_heap_free(held[i]);
+        held[i] = NULL;
+    }
+    /* If a larger pool exists, force a move out of the tested region. */
+    if (initial_largest >= end - start) {
+        q = shared_multi_heap_realloc(attr, p, initial_largest);
+        CHECK(q != NULL);
+        p = q;
+        CHECK(!shared_in_region(p, 1, start, end) && bytes_equal(p, 64, 0x3c));
+        moved = true;
+    }
+    shared_multi_heap_free(p);
+    p = NULL;
+    CHECK(shared_largest(attr) == initial_largest);
+    rc = 0;
+out:
+    shared_multi_heap_free(guard);
+    shared_multi_heap_free(p);
+    for (size_t i = 0; i < ARRAY_SIZE(held); i++) shared_multi_heap_free(held[i]);
+    if (rc == 0) {
+        LOG_INF("PASS shared %s [%p, %p): %u checks, payload %zu, moved %u",
+            name, (void *)start, (void *)end, checks, payload, (unsigned)moved);
+    }
+    return rc;
+#undef CHECK
+}
+#endif /* !CONFIG_HU_PALLOC && CONFIG_SHARED_MULTI_HEAP */

@@ -22,4 +22,4 @@ if(CONFIG_APP_CAMERA_BARCODE OR (CONFIG_ZXC_USE_HEAP AND
     target_sources(app PRIVATE src/scanner_zxc.c)
 endif()
 
-target_sources_ifdef(CONFIG_APP_PALLOC_SELF_TEST app PRIVATE src/palloc_test.c)
+target_sources_ifdef(CONFIG_APP_HEAP_SELF_TEST app PRIVATE src/heap_test.c)

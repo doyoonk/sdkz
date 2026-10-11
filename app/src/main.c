@@ -39,8 +39,8 @@ LOG_MODULE_REGISTER(app, CONFIG_APP_LOG_LEVEL);
 #ifdef CONFIG_SHARED_MULTI_HEAP
 #include <zephyr/multi_heap/shared_multi_heap.h>
 #endif
-#ifdef CONFIG_APP_PALLOC_SELF_TEST
-#include "palloc_test.h"
+#ifdef CONFIG_APP_HEAP_SELF_TEST
+#include "heap_test.h"
 #endif
 
 #if CONFIG_HU_APP
@@ -363,6 +363,12 @@ static int sram_add_region(uintptr_t start, uintptr_t base, uintptr_t end, const
 	}
 	LOG_INF("shared heap %s [%p, %p): %zu bytes, attr %u", name,
 		(void *)region.addr, (void *)aligned_end, region.size, region.attr);
+#ifdef CONFIG_APP_HEAP_SELF_TEST
+	rc = shared_heap_self_test(region.addr, aligned_end, name, region.attr);
+	if (rc != 0) {
+		return rc;
+	}
+#endif
 #endif
 	return 0;
 }
@@ -378,7 +384,7 @@ static int sram_add_device_region(const struct device *controller, uintptr_t sta
 	}
 	int rc = sram_add_region(start, base, end, name, false);
 
-#ifdef CONFIG_APP_PALLOC_SELF_TEST
+#if defined(CONFIG_APP_HEAP_SELF_TEST) && defined(CONFIG_HU_PALLOC)
 	if (rc == 0) {
 		rc = palloc_added_region_self_test(start, end, name);
 	}
@@ -431,7 +437,7 @@ static int sram_pools_init(void)
 #endif
 	rc = sram_add_region(pool_start, pool_base, pool_end, "DTCM", true);
 	if (rc != 0) return rc;
-#ifdef CONFIG_APP_PALLOC_SELF_TEST
+#if defined(CONFIG_APP_HEAP_SELF_TEST) && defined(CONFIG_HU_PALLOC)
 	rc = palloc_self_test(pool_start, pool_end, "DTCM");
 	if (rc != 0) {
 		LOG_ERR("palloc DTCM self-test failed: %d", rc);
@@ -457,7 +463,7 @@ static int sram_pools_init(void)
 #endif
 	rc = sram_add_region(itcm_start, itcm_base, itcm_end, "ITCM", true);
 	if (rc != 0) return rc;
-#ifdef CONFIG_APP_PALLOC_SELF_TEST
+#if defined(CONFIG_APP_HEAP_SELF_TEST) && defined(CONFIG_HU_PALLOC)
 #if APP_SRAM_DTCM
 	rc = palloc_multi_region_self_test(itcm_start, itcm_end, pool_start, pool_end);
 #else
