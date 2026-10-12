@@ -16,3 +16,6 @@ struct flash_pages_info { off_t start_offset; size_t size; uint32_t index; };
 int flash_get_page_info_by_offs(const struct device *dev, off_t offset,
                               struct flash_pages_info *info);
 int flash_ex_op(const struct device *dev, uint16_t code, uintptr_t in, void *out);
+
+struct flash_parameters { size_t write_block_size; uint8_t erase_value; };
+const struct flash_parameters *flash_get_parameters(const struct device *dev);

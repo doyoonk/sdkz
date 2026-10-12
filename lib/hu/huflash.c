@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025-2026 HU Inc.
+ * Copyright (c) 2025 HU Inc. All rights reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -41,15 +41,24 @@ struct fixed_partition
 {
     const char* const partition_name;
     uint8_t id;
+    uint32_t address;
+    const char *image_type;
 };
 
 static struct fixed_partition fixed_partitions[] =
 {
+#if FIXED_PARTITION_EXISTS(boot_partition)
+#if defined(CONFIG_SOC_SERIES_STM32N6X)
+    { "boot_partition", PARTITION_ID(boot_partition), DT_REG_ADDR(DT_NODELABEL(boot_partition)), "stm32n6" },
+#else
+    { "boot_partition", PARTITION_ID(boot_partition), DT_REG_ADDR(DT_NODELABEL(boot_partition)), "raw" },
+#endif
+#endif
 #if FIXED_PARTITION_EXISTS(slot0_partition)
-    { "slot0", PARTITION_ID(slot0_partition) },
+    { "slot0", PARTITION_ID(slot0_partition), DT_REG_ADDR(DT_NODELABEL(slot0_partition)), "mcuboot" },
 #endif
 #if FIXED_PARTITION_EXISTS(slot1_partition)
-    { "slot1", PARTITION_ID(slot1_partition) },
+    { "slot1", PARTITION_ID(slot1_partition), DT_REG_ADDR(DT_NODELABEL(slot1_partition)), "mcuboot" },
 #endif
 };
 static int last_size;
@@ -305,3 +314,71 @@ fw_flash_error:
     _set_done(h, argc, argv, ARG_FLASH_PARTITION, ARG_FLASH_LENGTH);
 }
 DEFINE_HUP_CMD(hup_cmd_flash, "flash", _flash);
+
+/* Numeric response fields are hexadecimal, like flash offset/length arguments.
+ * Resolve "inactive" once and return its concrete name for the whole transfer.
+ */
+static void _flash_info(void *h, int argc, const char **argv)
+{
+    const struct flash_area *fa = NULL;
+    const struct fixed_partition *part = NULL;
+    const struct flash_parameters *params = NULL;
+    int rc = argc == 2 ? open_flash_partition(argv[1], &fa) : -EINVAL;
+
+    if (rc == 0) {
+        for (size_t i = 0; i < ARRAY_SIZE(fixed_partitions); i++) {
+            if (fixed_partitions[i].id == fa->fa_id) {
+                part = &fixed_partitions[i];
+                break;
+            }
+        }
+        params = flash_get_parameters(flash_area_get_device(fa));
+        if (part == NULL || params == NULL || params->write_block_size == 0 ||
+            params->write_block_size > ASCII85_MAX_CHUNK_SIZE ||
+            fa->fa_off < 0 || fa->fa_off > INT32_MAX ||
+            fa->fa_size == 0 || fa->fa_size > INT32_MAX) rc = -ENOTSUP;
+    }
+    _set_status(h, rc);
+    if (rc == 0) {
+        hupacket_record_str(h, NULL, part->partition_name);
+        hupacket_record_hex(h, NULL, fa->fa_off);
+        hupacket_record_hex(h, NULL, fa->fa_size);
+        hupacket_record_hex(h, NULL, params->write_block_size);
+        hupacket_record_hex(h, NULL, params->erase_value);
+        hupacket_record_hex(h, NULL, part->address);
+        hupacket_record_hex(h, NULL, ASCII85_MAX_CHUNK_SIZE);
+        hupacket_record_str(h, NULL, part->image_type);
+    }
+    close_flash_partition(fa);
+    hupacket_send_buffer(h, NULL);
+}
+DEFINE_HUP_CMD(hup_cmd_flash_info, "flash_info", _flash_info);
+
+static void _flash_read(void *h, int argc, const char **argv)
+{
+    const struct flash_area *fa = NULL;
+    uint8_t data[ASCII85_MAX_CHUNK_SIZE];
+    uint32_t offset = 0, size = 0;
+    int rc = -EINVAL;
+
+    if (argc == 4 && parse_hex_u32(argv[2], &offset) &&
+        parse_hex_u32(argv[3], &size) && offset <= INT32_MAX &&
+        size > 0 && size <= sizeof(data)) {
+        rc = open_flash_partition(argv[1], &fa);
+        if (rc == 0) {
+            if (offset > fa->fa_size || size > fa->fa_size - offset) rc = -EINVAL;
+            else rc = flash_area_read(fa, offset, data, size);
+        }
+    }
+    _set_status(h, rc);
+    if (rc == 0) {
+        hupacket_record_str(h, NULL, argv[1]);
+        hupacket_record_hex(h, NULL, offset);
+        hupacket_record_hex(h, NULL, size);
+        hupacket_record_str(h, NULL, "");
+        hupacket_append_hex_bytes(h, NULL, data, size);
+    }
+    close_flash_partition(fa);
+    hupacket_send_buffer(h, NULL);
+}
+DEFINE_HUP_CMD(hup_cmd_flash_read, "flash_read", _flash_read);

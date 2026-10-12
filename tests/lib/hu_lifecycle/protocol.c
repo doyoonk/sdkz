@@ -12,9 +12,11 @@ static void ping(void *,int,const char *[]);
 static void response(void *,int,const char *[],void *);
 static void _flash(void *,int,const char **);
 static void _erase(void *,int,const char **);
+static void _flash_info(void *,int,const char **);
+static void _flash_read(void *,int,const char **);
 static void _wrprt(void *,int,const char **);
 static struct hup_cmd hup_cmd_items[]={
-    {"ping",ping},{"flash",_flash},{"erase",_erase},{"wrprt",_wrprt},
+    {"flash_info",_flash_info},{"flash_read",_flash_read},{"ping",ping},{"flash",_flash},{"erase",_erase},{"wrprt",_wrprt},
 };
 static const size_t hup_cmd_count=ARRAY_SIZE(hup_cmd_items);
 static struct hup_resp hup_resp_items[]={{"ping",response}};
@@ -31,7 +33,7 @@ static bool last_response_crc;
 static char last_reply[CONFIG_HU_PACKET_SIZE];
 const struct device test_internal_flash={1}, test_external_flash={2};
 static struct flash_area areas[]={
-    {2,0,4096,&test_external_flash}, {3,4096,4096,&test_external_flash}
+    {2,0,4096,&test_external_flash}, {3,4096,4096,&test_external_flash}, {1,8192,4096,&test_external_flash}
 };
 static uint8_t flash_bytes[4096];
 
@@ -45,7 +47,7 @@ char *itoa(int value,char *str,int base) {
 int bootloader_active_slot(uint8_t *slot) { *slot=active_slot;return slot_error; }
 int flash_area_open(uint8_t id,const struct flash_area **fa) {
     if(open_error)return open_error;
-    assert(id==2 || id==3);*fa=&areas[id-2];last_id=id;opens++;return 0;
+    assert(id==1 || id==2 || id==3);*fa=&areas[id==1 ? 2 : id-2];last_id=id;opens++;return 0;
 }
 void flash_area_close(const struct flash_area *fa) { assert(fa);closes++; }
 int flash_area_write(const struct flash_area *fa,off_t off,const void *src,size_t len) {
@@ -55,6 +57,16 @@ int flash_area_write(const struct flash_area *fa,off_t off,const void *src,size_
 }
 int flash_area_erase(const struct flash_area *fa,off_t off,size_t len) {
     erases++;assert(off==0 && len==fa->fa_size);return erase_error;
+}
+static int read_error;
+int flash_area_read(const struct flash_area *fa,off_t off,void *dst,size_t len) {
+    assert(off>=0 && (size_t)off+len<=fa->fa_size);
+    if(read_error)return read_error;
+    memcpy(dst,flash_bytes+off,len);return 0;
+}
+const struct flash_parameters *flash_get_parameters(const struct device *dev) {
+    static const struct flash_parameters params={1,255};
+    return &params;
 }
 static ssize_t sender(void *user,const uint8_t *bytes,size_t n) {
     assert(n<sizeof(last_reply));memcpy(last_reply,bytes,n);last_reply[n]=0;sends++;return n;
@@ -276,5 +288,19 @@ int main(void) {
     defined(CONFIG_FLASH_PAGE_LAYOUT)
     test_write_protection(h);
 #endif
+    valid(h,5,"flash_info:8\36boot_partition");status(0);assert(last_id==1);
+    expected_reply(6,"flash_info:8\36" "0\36boot_partition\36" "2000\36" "1000\36" "1\36" "ff\36" "70000000\36" "100\36raw");
+    flash_request(h,"boot_partition","0","4","z",0);assert(last_id==1);
+    valid(h,5,"flash_read:9\36boot_partition\36" "0\36" "4");status(0);
+    expected_reply(6,"flash_read:9\36" "0\36boot_partition\36" "0\36" "4\36" "00000000");
+    valid(h,5,"flash_read:9\36slot0\36fff\36" "2");status(-EINVAL);
+    valid(h,5,"flash_read:9\36slot0\36" "0\36" "101");status(-EINVAL);
+    valid(h,5,"flash_read:9\36slot0\36" "0\36" "0");status(-EINVAL);
+    read_error=-EIO;valid(h,5,"flash_read:9\36slot0\36" "0\36" "4");status(-EIO);read_error=0;
+    active_slot=0;valid(h,5,"flash_info:8\36inactive");status(0);assert(last_id==3);
+    valid(h,5,"flash_info:8\36unknown");status(-EINVAL);
+    valid(h,5,"flash_info:8");status(-EINVAL);
+    valid(h,5,"erase:9\36boot_partition");status(0);assert(last_id==1);
+    puts("PASS: boot partition erase/write, geometry query, bounded readback and driver errors");
     deinit_hupacket(h);return 0;
 }

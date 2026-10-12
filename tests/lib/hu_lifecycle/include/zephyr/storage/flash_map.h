@@ -9,6 +9,13 @@
 #include <zephyr/drivers/flash.h>
 #define FIXED_PARTITION_EXISTS(name) 1
 #define PARTITION_ID(name) name##_id
+#define boot_partition_id 1
+#define DT_NODELABEL(name) name
+#define TEST_REG_ADDR(name) name##_address
+#define DT_REG_ADDR(name) TEST_REG_ADDR(name)
+#define boot_partition_address 0x70000000U
+#define slot0_partition_address 0x70080000U
+#define slot1_partition_address 0x70200000U
 #define slot0_partition_id 2
 #define slot1_partition_id 3
 struct flash_area { uint8_t fa_id; off_t fa_off; uint32_t fa_size; const struct device *fa_dev; };
@@ -19,3 +26,5 @@ int flash_area_open(uint8_t id,const struct flash_area **fa);
 void flash_area_close(const struct flash_area *fa);
 int flash_area_write(const struct flash_area *fa,off_t off,const void *src,size_t len);
 int flash_area_erase(const struct flash_area *fa,off_t off,size_t len);
+
+int flash_area_read(const struct flash_area *fa,off_t off,void *dst,size_t len);
