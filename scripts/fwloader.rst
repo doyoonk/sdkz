@@ -19,6 +19,20 @@ Serial parameters: ``--baud``, ``--data-bits``, ``--parity``, ``--stop-bits``,
 ``--erase-timeout``. Defaults are 115200, 8N1, no flow control, 5 seconds per
 request and 120 seconds for a full partition erase.
 
+Image format selection
+----------------------
+
+The user chooses the file and target partition. By default, ``--image-type raw``
+performs no image header or board compatibility check, for every partition.
+Here ``raw`` still means an Intel HEX input file; it does not select binary input.
+The loader does not infer the image format from the SoC or partition name.
+
+Optional checks can be selected explicitly with ``--image-type mcuboot``
+(MCUboot header and TLV bounds) or ``--image-type stm32-v2.3`` (STM32 v2.3 header,
+payload length and checksum). These checks do not validate cryptographic
+signatures or establish board compatibility. The user is responsible for
+selecting an image that boots on the target.
+
 Transfer behavior
 -----------------
 
@@ -61,9 +75,6 @@ The STM32 signing tool must be in PATH, as required by the Zephyr SoC build::
   export PATH=/opt/st/stm32cubeclt_1.21.0/STM32CubeProgrammer/bin:$PATH
   west build -d builds/stm32n6570_dk/mcuboot
 
-The loader checks STM32 header/payload length and checksum, or MCUboot header
-and TLV bounds. It does not validate cryptographic signatures or decide whether
-an image is compatible with the board. MCUboot/BootROM retains that responsibility.
 MCUboot is overwritten directly and has no fallback bootloader slot here; an
 interrupted update may require BOOT1 ON/H and ST-Link recovery. The current
 STM32 XSPI driver does not support ``wrprt`` and returns ``-ENOTSUP``.
@@ -74,9 +85,10 @@ Protocol additions
 ``flash_info <partition>`` returns these records after HU status::
 
   canonical_name, flash_offset, partition_size, write_unit, erase_value,
-  mapped_address, max_chunk, image_type
+  mapped_address, max_chunk
 
-Numbers are hexadecimal. ``image_type`` is ``stm32n6``, ``mcuboot`` or ``raw``.
+Numbers are hexadecimal. The loader also accepts the older eight-field response
+and ignores its trailing image type; header checks are selected only by the user.
 ``flash_read <partition> <offset_hex> <size_hex>`` returns::
 
   partition, offset_hex, size_hex, data_hex

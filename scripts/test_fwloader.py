@@ -6,8 +6,9 @@ import base64
 import binascii
 import tempfile
 import unittest
+from unittest.mock import patch, MagicMock
 from pathlib import Path
-from fwloader import HuError, HuSerial, Partition, load, prepare_image, read_hex, verify
+from fwloader import HuError, HuSerial, Partition, load, prepare_image, read_hex, verify, main
 
 
 def record(kind, address=0, data=b""):
@@ -46,7 +47,7 @@ class Board:
             begin, length = int(offset, 16), int(size, 16)
             return [part, offset, size, self.memory[begin:begin + length].hex()]
         if command == "flash_info":
-            return ["slot1", "200000", "200", "8", "ff", "70200000", "100", "mcuboot"]
+            return ["slot1", "200000", "200", "8", "ff", "70200000", "100"]
         raise AssertionError(command)
 
 
@@ -82,8 +83,8 @@ class LoaderTests(unittest.TestCase):
             p.write_text(text)
             return read_hex(p)
 
-    def part(self, kind="raw"):
-        return Partition("slot0", 0x80000, 512, 8, 255, 0x70080000, 256, kind)
+    def part(self):
+        return Partition("slot0", 0x80000, 512, 8, 255, 0x70080000, 256)
 
     def test_hex_extended_sparse_and_start(self):
         parts = self.parse(record(4, data=b"\x70\x08") + record(0, 3, b"abc") +
@@ -111,26 +112,55 @@ class LoaderTests(unittest.TestCase):
             prepare_image([(0x700801ff, b"ab")], self.part())
         self.assertEqual(prepare_image([(0x70200000, b"a")], self.part(), 0x70200000)[0], 97)
 
+    def test_raw_default_for_all_partitions(self):
+        for name in ("boot_partition", "slot0", "slot1"):
+            part = Partition(name, 0, 512, 8, 255, 0x70080000, 256)
+            image = prepare_image([(part.address, b"arbitrary image")], part)
+            self.assertEqual(image[:15], b"arbitrary image")
+
+    def test_legacy_board_type_does_not_select_validation(self):
+        class Legacy(Board):
+            def request(self, command, *args, **kwargs):
+                return super().request(command, *args, **kwargs) + ["stm32n6"]
+        part = Partition.query(Legacy(), "slot1")
+        self.assertEqual(prepare_image([(part.address, b"raw")], part)[:3], b"raw")
+        with self.assertRaises(ValueError):
+            prepare_image([(part.address, b"raw")], part, image_type="stm32-v2.3")
+
+    def test_cli_default_and_explicit_header_validation(self):
+        board = Board()
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "arbitrary.hex"
+            path.write_text(record(4, data=b"\x70\x20") + record(0, 0, b"arbitrary") + record(1))
+            args = [str(path), "--port", "test", "--partition", "slot1"]
+            with patch("serial.Serial", return_value=MagicMock()), patch("fwloader.HuSerial", return_value=board):
+                self.assertEqual(main(args), 0)
+                self.assertIn(("erase", "slot1"), board.calls)
+                for kind in ("mcuboot", "stm32-v2.3"):
+                    board.calls.clear()
+                    self.assertEqual(main(args + ["--image-type", kind]), 1)
+                    self.assertEqual(board.calls, [("flash_info", "slot1")])
+
     def test_image_header(self):
-        for kind in ("mcuboot", "stm32n6"):
+        for kind in ("mcuboot", "stm32-v2.3"):
             with self.assertRaises(ValueError):
-                prepare_image([(0x70080000, b"wrong")], self.part(kind))
+                prepare_image([(0x70080000, b"wrong")], self.part(), image_type=kind)
         app = bytearray(40)
         app[:4] = bytes.fromhex("3db8f396")
         app[8:10] = (32).to_bytes(2, "little")
         app[12:16] = (4).to_bytes(4, "little")
         app[36:40] = bytes.fromhex("07690400")
-        prepare_image([(0x70080000, app)], self.part("mcuboot"))
+        prepare_image([(0x70080000, app)], self.part(), image_type="mcuboot")
         with self.assertRaises(ValueError):
-            prepare_image([(0x70080000, app[:-1])], self.part("mcuboot"))
+            prepare_image([(0x70080000, app[:-1])], self.part(), image_type="mcuboot")
         boot = bytearray(164)
         boot[:4] = b"STM2"
         boot[0x68:0x6c] = (0x20300).to_bytes(4, "little")
         boot[0x6c:0x70] = (4).to_bytes(4, "little")
-        prepare_image([(0x70080000, boot)], self.part("stm32n6"))
+        prepare_image([(0x70080000, boot)], self.part(), image_type="stm32-v2.3")
         boot[-1] = 1
         with self.assertRaisesRegex(ValueError, "checksum"):
-            prepare_image([(0x70080000, boot)], self.part("stm32n6"))
+            prepare_image([(0x70080000, boot)], self.part(), image_type="stm32-v2.3")
 
     def test_sequence_write_verify_protect(self):
         board, part = Board(), self.part()

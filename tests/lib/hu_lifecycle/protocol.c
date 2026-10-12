@@ -289,7 +289,7 @@ int main(void) {
     test_write_protection(h);
 #endif
     valid(h,5,"flash_info:8\36boot_partition");status(0);assert(last_id==1);
-    expected_reply(6,"flash_info:8\36" "0\36boot_partition\36" "2000\36" "1000\36" "1\36" "ff\36" "70000000\36" "100\36raw");
+    expected_reply(6,"flash_info:8\36" "0\36boot_partition\36" "2000\36" "1000\36" "1\36" "ff\36" "70000000\36" "100");
     flash_request(h,"boot_partition","0","4","z",0);assert(last_id==1);
     valid(h,5,"flash_read:9\36boot_partition\36" "0\36" "4");status(0);
     expected_reply(6,"flash_read:9\36" "0\36boot_partition\36" "0\36" "4\36" "00000000");

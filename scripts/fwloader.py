@@ -128,26 +128,28 @@ class Partition:
     erased: int
     address: int
     chunk_size: int
-    image_type: str
 
     @classmethod
     def query(cls, client, name):
         fields = client.request("flash_info", name)
-        if len(fields) != 8:
+        if len(fields) not in (7, 8):
             raise ValueError("Invalid flash_info response; updated firmware is required")
-        p = cls(fields[0], *(int(x, 16) for x in fields[1:7]), fields[7])
+        # Older firmware appended an image type; only the user selects validation.
+        p = cls(fields[0], *(int(x, 16) for x in fields[1:7]))
         if (p.name not in ("boot_partition", "slot0", "slot1") or
                 not 0 < p.size <= MAX_IMAGE_SIZE or not 0 < p.write_size <= p.chunk_size <= 256 or
                 p.size % p.write_size or not 0 <= p.erased <= 255 or
                 not 0 <= p.offset <= 0x7fffffff or not 0 <= p.address < 0x100000000 or
-                p.address + p.size > 0x100000000 or p.image_type not in ("raw", "mcuboot", "stm32n6")):
+                p.address + p.size > 0x100000000):
             raise ValueError("Invalid partition geometry")
         if name != "inactive" and p.name != name:
             raise ValueError("Partition response does not match requested target")
         return p
 
 
-def prepare_image(segments, part, base=None):
+def prepare_image(segments, part, base=None, image_type="raw"):
+    if image_type not in ("raw", "mcuboot", "stm32-v2.3"):
+        raise ValueError(f"Unknown image type: {image_type}")
     origin = part.address if base is None else base
     if not 0 <= origin < 0x100000000 or origin + part.size > 0x100000000:
         raise ValueError("Invalid HEX base")
@@ -163,19 +165,19 @@ def prepare_image(segments, part, base=None):
         return int.from_bytes(image[offset:offset + 2], "little")
     def u32(offset):
         return int.from_bytes(image[offset:offset + 4], "little")
-    if part.image_type == "stm32n6":
+    if image_type == "stm32-v2.3":
         # STM32 Signing Tool header v2.3: fixed header (160 bytes), extensions,
         # then the payload. This is an integrity check, not signature validation.
         if covered < 160 or image[:4] != b"STM2" or u32(0x68) != 0x00020300:
-            raise ValueError("STM32N6 requires zephyr.signed.hex with an STM32 v2.3 header")
+            raise ValueError("Selected stm32-v2.3 format requires an STM32 v2.3 header")
         header, length = 160 + u32(0x88), u32(0x6c)
         if not length or header + length > covered:
             raise ValueError("Truncated STM32 header or payload")
         if sum(image[header:header + length]) & 0xffffffff != u32(0x64):
             raise ValueError("STM32 payload checksum mismatch")
-    if part.image_type == "mcuboot":
+    if image_type == "mcuboot":
         if covered < 32 or image[:4] != bytes.fromhex("3db8f396"):
-            raise ValueError("App partition requires an MCUboot image header (use signed HEX)")
+            raise ValueError("Selected mcuboot format requires an MCUboot image header")
         header, protected, length = u16(8), u16(10), u32(12)
         end = header + length
         if header < 32 or not length or end + protected + 4 > covered:
@@ -254,6 +256,8 @@ def main(argv=None):
     parser.add_argument("--timeout", type=float, default=5)
     parser.add_argument("--erase-timeout", type=float, default=120)
     parser.add_argument("--base", type=integer, help="HEX address corresponding to partition offset zero; explicit relocation")
+    parser.add_argument("--image-type", choices=("raw", "mcuboot", "stm32-v2.3"), default="raw",
+                        help="optional image header validation; raw (default) does not check image headers")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true", help="validate HEX and query geometry without modifying flash")
     mode.add_argument("--verify-only", action="store_true", help="only compare existing flash against HEX, including erased gaps")
@@ -281,7 +285,7 @@ def main(argv=None):
             port.reset_input_buffer()
             client = HuSerial(port, args.timeout, args.device_id)
             part = Partition.query(client, name)
-            image = prepare_image(segments, part, args.base)
+            image = prepare_image(segments, part, args.base, args.image_type)
             print(f"{part.name}: flash address=0x{part.address:08x}, size=0x{part.size:x}, "
                   f"write unit={part.write_size}; HEX data={sum(len(d) for _, d in segments)} bytes")
             if args.dry_run:
