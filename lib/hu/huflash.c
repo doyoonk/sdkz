@@ -41,19 +41,18 @@ struct fixed_partition
 {
     const char* const partition_name;
     uint8_t id;
-    uint32_t address;
 };
 
 static struct fixed_partition fixed_partitions[] =
 {
 #if FIXED_PARTITION_EXISTS(boot_partition)
-    { "boot_partition", PARTITION_ID(boot_partition), DT_REG_ADDR(DT_NODELABEL(boot_partition)) },
+    { "boot_partition", PARTITION_ID(boot_partition) },
 #endif
 #if FIXED_PARTITION_EXISTS(slot0_partition)
-    { "slot0", PARTITION_ID(slot0_partition), DT_REG_ADDR(DT_NODELABEL(slot0_partition)) },
+    { "slot0", PARTITION_ID(slot0_partition) },
 #endif
 #if FIXED_PARTITION_EXISTS(slot1_partition)
-    { "slot1", PARTITION_ID(slot1_partition), DT_REG_ADDR(DT_NODELABEL(slot1_partition)) },
+    { "slot1", PARTITION_ID(slot1_partition) },
 #endif
 };
 static int last_size;
@@ -340,7 +339,6 @@ static void _flash_info(void *h, int argc, const char **argv)
         hupacket_record_hex(h, NULL, fa->fa_size);
         hupacket_record_hex(h, NULL, params->write_block_size);
         hupacket_record_hex(h, NULL, params->erase_value);
-        hupacket_record_hex(h, NULL, part->address);
         hupacket_record_hex(h, NULL, ASCII85_MAX_CHUNK_SIZE);
     }
     close_flash_partition(fa);

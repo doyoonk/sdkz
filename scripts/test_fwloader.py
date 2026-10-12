@@ -47,7 +47,7 @@ class Board:
             begin, length = int(offset, 16), int(size, 16)
             return [part, offset, size, self.memory[begin:begin + length].hex()]
         if command == "flash_info":
-            return ["slot1", "200000", "200", "8", "ff", "70200000", "100"]
+            return ["slot1" if args[0] == "inactive" else args[0], "200000", "200", "8", "ff", "100"]
         raise AssertionError(command)
 
 
@@ -84,13 +84,13 @@ class LoaderTests(unittest.TestCase):
             return read_hex(p)
 
     def part(self):
-        return Partition("slot0", 0x80000, 512, 8, 255, 0x70080000, 256)
+        return Partition("slot0", 0x80000, 512, 8, 255, 256)
 
     def test_hex_extended_sparse_and_start(self):
         parts = self.parse(record(4, data=b"\x70\x08") + record(0, 3, b"abc") +
                            record(0, 7, b"def") + record(5, data=b"\x24\0\0\0") + record(1))
         image = prepare_image(parts, self.part())
-        self.assertEqual(image[:12], b"\xff\xff\xffabc\xffdef\xff\xff")
+        self.assertEqual(image[:12], b"abc\xffdef" + b"\xff" * 5)
 
     def test_segment_address(self):
         self.assertEqual(self.parse(record(2, data=b"\x12\x34") + record(0, 5, b"a") + record(1)),
@@ -105,33 +105,55 @@ class LoaderTests(unittest.TestCase):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 self.parse(text)
 
-    def test_bounds_and_explicit_relocation(self):
-        with self.assertRaises(ValueError):
-            prepare_image([(0x70200000, b"a")], self.part())
-        with self.assertRaises(ValueError):
-            prepare_image([(0x700801ff, b"ab")], self.part())
-        self.assertEqual(prepare_image([(0x70200000, b"a")], self.part(), 0x70200000)[0], 97)
+    def test_span_bounds_independent_of_hex_start(self):
+        for start in (0, 0x08000000, 0x24000000, 0x70080000, 0xfffffe00):
+            part = self.part()
+            with self.subTest(start=start):
+                self.assertEqual(prepare_image([(start, bytes(512))], part), bytes(512))
+                with self.assertRaisesRegex(ValueError, "span exceeds"):
+                    prepare_image([(start, bytes(513))], part)
+                with self.assertRaisesRegex(ValueError, "span exceeds"):
+                    prepare_image([(start, b"a"), (start + 512, b"b")], part)
+
+    def test_same_hex_downloads_to_selected_slot(self):
+        for start in (0, 0x08000000, 0x24000000, 0x70080000, 0xfffffe00):
+            # Records can be out of address order; entry point is not flash data.
+            segments = self.parse(record(4, data=(start >> 16).to_bytes(2, "big")) +
+                                  record(0, (start & 65535) + 16, b"tail") +
+                                  record(0, start & 65535, b"head") +
+                                  record(5, data=b"\x70\x08\x00\x00") + record(1))
+            for target in ("slot0", "slot1", "inactive", "boot_partition"):
+                with self.subTest(start=start, target=target):
+                    board = Board()
+                    part = Partition.query(board, target)
+                    image = prepare_image(segments, part)
+                    load(board, part, image)
+                    self.assertEqual(board.memory[:20], b"head" + b"\xff" * 12 + b"tail")
+                    writes = [call for call in board.calls if call[0] == "flash"]
+                    self.assertEqual(writes[0][1:3], (part.name, "0"))
+                    self.assertTrue(all(call[1] == part.name for call in board.calls[1:]))
 
     def test_raw_default_for_all_partitions(self):
         for name in ("boot_partition", "slot0", "slot1"):
-            part = Partition(name, 0, 512, 8, 255, 0x70080000, 256)
-            image = prepare_image([(part.address, b"arbitrary image")], part)
+            part = Partition(name, 0, 512, 8, 255, 256)
+            image = prepare_image([(0x70080000, b"arbitrary image")], part)
             self.assertEqual(image[:15], b"arbitrary image")
 
-    def test_legacy_board_type_does_not_select_validation(self):
-        class Legacy(Board):
-            def request(self, command, *args, **kwargs):
-                return super().request(command, *args, **kwargs) + ["stm32n6"]
-        part = Partition.query(Legacy(), "slot1")
-        self.assertEqual(prepare_image([(part.address, b"raw")], part)[:3], b"raw")
-        with self.assertRaises(ValueError):
-            prepare_image([(part.address, b"raw")], part, image_type="stm32-v2.3")
+    def test_legacy_address_and_type_are_ignored(self):
+        for extra in (["not-a-mapped-address", "100"], ["0", "100", "stm32n6"]):
+            class Legacy(Board):
+                def request(self, command, *args, **kwargs):
+                    return super().request(command, *args, **kwargs)[:5] + extra
+            part = Partition.query(Legacy(), "slot1")
+            self.assertEqual(prepare_image([(0x70080000, b"raw")], part)[:3], b"raw")
+            with self.assertRaises(ValueError):
+                prepare_image([(0x70080000, b"raw")], part, image_type="stm32-v2.3")
 
     def test_cli_default_and_explicit_header_validation(self):
         board = Board()
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "arbitrary.hex"
-            path.write_text(record(4, data=b"\x70\x20") + record(0, 0, b"arbitrary") + record(1))
+            path.write_text(record(4, data=b"\x70\x08") + record(0, 0, b"arbitrary") + record(1))
             args = [str(path), "--port", "test", "--partition", "slot1"]
             with patch("serial.Serial", return_value=MagicMock()), patch("fwloader.HuSerial", return_value=board):
                 self.assertEqual(main(args), 0)
@@ -164,7 +186,7 @@ class LoaderTests(unittest.TestCase):
 
     def test_sequence_write_verify_protect(self):
         board, part = Board(), self.part()
-        image = prepare_image([(part.address, bytes(range(255)))], part)
+        image = prepare_image([(0x70080000, bytes(range(255)))], part)
         load(board, part, image)
         self.assertEqual(board.memory, image)
         self.assertEqual([x[0] for x in board.calls],
@@ -226,8 +248,13 @@ class LoaderTests(unittest.TestCase):
     def test_inactive_pinned(self):
         p = Partition.query(Board(), "inactive")
         self.assertEqual(p.name, "slot1")
+        class WrongTarget(Board):
+            def request(self, *args, **kwargs):
+                fields = super().request(*args, **kwargs)
+                fields[0] = "slot1"
+                return fields
         with self.assertRaises(ValueError):
-            Partition.query(Board(), "slot0")
+            Partition.query(WrongTarget(), "slot0")
 
     def test_serial_crc_fragment_and_sequence(self):
         port = SerialPort()

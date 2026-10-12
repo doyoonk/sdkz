@@ -126,41 +126,40 @@ class Partition:
     size: int
     write_size: int
     erased: int
-    address: int
     chunk_size: int
 
     @classmethod
     def query(cls, client, name):
         fields = client.request("flash_info", name)
-        if len(fields) not in (7, 8):
+        if len(fields) not in (6, 7, 8):
             raise ValueError("Invalid flash_info response; updated firmware is required")
-        # Older firmware appended an image type; only the user selects validation.
-        p = cls(fields[0], *(int(x, 16) for x in fields[1:7]))
+        # Ignore mapped address and image type from older firmware.
+        chunk = fields[5] if len(fields) == 6 else fields[6]
+        p = cls(fields[0], *(int(x, 16) for x in fields[1:5]), int(chunk, 16))
         if (p.name not in ("boot_partition", "slot0", "slot1") or
                 not 0 < p.size <= MAX_IMAGE_SIZE or not 0 < p.write_size <= p.chunk_size <= 256 or
                 p.size % p.write_size or not 0 <= p.erased <= 255 or
-                not 0 <= p.offset <= 0x7fffffff or not 0 <= p.address < 0x100000000 or
-                p.address + p.size > 0x100000000):
+                not 0 <= p.offset <= 0x7fffffff):
             raise ValueError("Invalid partition geometry")
         if name != "inactive" and p.name != name:
             raise ValueError("Partition response does not match requested target")
         return p
 
 
-def prepare_image(segments, part, base=None, image_type="raw"):
+def prepare_image(segments, part, image_type="raw"):
     if image_type not in ("raw", "mcuboot", "stm32-v2.3"):
         raise ValueError(f"Unknown image type: {image_type}")
-    origin = part.address if base is None else base
-    if not 0 <= origin < 0x100000000 or origin + part.size > 0x100000000:
-        raise ValueError("Invalid HEX base")
+    if not segments:
+        raise ValueError("HEX contains no data")
+    segments = sorted(segments)
+    origin = segments[0][0]  # Preserve relative layout; destination is selected by partition name.
     image = bytearray([part.erased]) * part.size
     for address, data in segments:
         offset = address - origin
         if offset < 0 or offset + len(data) > part.size:
-            raise ValueError(f"HEX range 0x{address:x}..0x{address+len(data):x} is outside "
-                             f"{part.name} (HEX base 0x{origin:x}, size 0x{part.size:x})")
+            raise ValueError(f"HEX data span exceeds {part.name} size 0x{part.size:x}")
         image[offset:offset + len(data)] = data
-    covered = len(segments[0][1]) if segments[0][0] == origin else 0
+    covered = len(segments[0][1])
     def u16(offset):
         return int.from_bytes(image[offset:offset + 2], "little")
     def u32(offset):
@@ -236,10 +235,6 @@ def load(client, part, image, erase_timeout=120, progress=None):
                                    f"hardware protection restoration failed: {error}") from error
 
 
-def integer(value):
-    return int(value, 0)
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("file", type=Path, help="Intel HEX file, normally zephyr.signed[.confirmed].hex")
@@ -255,7 +250,6 @@ def main(argv=None):
     parser.add_argument("--device-id", type=int)
     parser.add_argument("--timeout", type=float, default=5)
     parser.add_argument("--erase-timeout", type=float, default=120)
-    parser.add_argument("--base", type=integer, help="HEX address corresponding to partition offset zero; explicit relocation")
     parser.add_argument("--image-type", choices=("raw", "mcuboot", "stm32-v2.3"), default="raw",
                         help="optional image header validation; raw (default) does not check image headers")
     mode = parser.add_mutually_exclusive_group()
@@ -285,8 +279,8 @@ def main(argv=None):
             port.reset_input_buffer()
             client = HuSerial(port, args.timeout, args.device_id)
             part = Partition.query(client, name)
-            image = prepare_image(segments, part, args.base, args.image_type)
-            print(f"{part.name}: flash address=0x{part.address:08x}, size=0x{part.size:x}, "
+            image = prepare_image(segments, part, args.image_type)
+            print(f"{part.name}: size=0x{part.size:x}, "
                   f"write unit={part.write_size}; HEX data={sum(len(d) for _, d in segments)} bytes")
             if args.dry_run:
                 print("Validation passed; flash unchanged.")

@@ -36,8 +36,8 @@ selecting an image that boots on the target.
 Transfer behavior
 -----------------
 
-* Validate Intel HEX checksums, record types, overlapping data, EOF and addresses.
-* Query partition geometry and validate all data before modifying flash.
+* Validate Intel HEX checksums, record types, overlapping data, EOF and record address encoding.
+* Query partition size and write geometry; check that the image span fits before modifying flash.
 * Execute ``wrprt <partition> 0``, ``erase``, ``flash`` (up to 256 bytes of
   ASCII85 per request), full partition readback, then ``wrprt <partition> 1``.
 * Only unsupported-operation errors (Zephyr ``-ENOTSUP`` = -134, or -95) skip write protection. Other errors stop the transfer.
@@ -53,12 +53,19 @@ Transfer behavior
 
 ``slot0``, ``slot1``, ``inactive`` and ``boot_partition`` are supported.
 ``boot`` and ``mcuboot`` are aliases for ``boot_partition``. ``inactive`` is
-resolved once into its concrete slot. The HEX must be linked/rebased for the
-selected partition address. To explicitly relocate a slot0 RAM-load image to
-an inactive slot, use ``--base 0x70080000``; that address is interpreted as
-partition offset zero. This does not relocate machine code or make XIP firmware
-suitable for another slot. Image activation/confirmation policies are unchanged;
-the loader does not set MCUboot swap requests.
+resolved once into its concrete slot. The selected partition determines the
+download destination regardless of the HEX's original address. The lowest HEX
+data address becomes partition offset zero. Relative offsets and gaps between
+records are preserved; payload bytes are unchanged. Neither the original HEX
+address nor a board mapped address is used to accept or reject the target slot.
+There is no ``--base`` option. The complete data span, including gaps, must fit
+the selected partition.
+
+For example, the same HEX starting at 0x70080000 can be downloaded to either
+``slot0`` or ``slot1`` without changing the HEX. A bootloader configured to boot
+only from slot0 may subsequently swap or copy the slot1 image into slot0 using
+its configured upgrade mechanism. The loader writes the selected partition;
+it does not choose an execution slot or set MCUboot swap requests.
 
 STM32N6570-DK MCUboot HEX
 ------------------------
@@ -66,8 +73,8 @@ STM32N6570-DK MCUboot HEX
 The SDK's MCUboot build generates both ``zephyr.signed.bin`` and
 ``zephyr.signed.hex`` after STM32 signing. The HEX has the address from
 ``boot_partition`` (currently 0x70000000), including the STM32 v2.3 header.
-The ordinary ``zephyr.hex`` has RAM execution addresses and must not be used
-for this update. App images use MCUboot signed HEX, preferably the existing
+For this board, ``zephyr.signed.hex`` includes the STM32 boot header;
+the ordinary ``zephyr.hex`` does not include that header. App images use MCUboot signed HEX, preferably the existing
 ``zephyr.signed.confirmed.hex`` when installing directly into the running slot.
 
 The STM32 signing tool must be in PATH, as required by the Zephyr SoC build::
@@ -84,11 +91,11 @@ Protocol additions
 
 ``flash_info <partition>`` returns these records after HU status::
 
-  canonical_name, flash_offset, partition_size, write_unit, erase_value,
-  mapped_address, max_chunk
+  canonical_name, flash_offset, partition_size, write_unit, erase_value, max_chunk
 
-Numbers are hexadecimal. The loader also accepts the older eight-field response
-and ignores its trailing image type; header checks are selected only by the user.
+Numbers are hexadecimal. The loader also accepts older seven/eight-field
+responses and ignores their mapped address and image type. Header checks are
+selected only by the user.
 ``flash_read <partition> <offset_hex> <size_hex>`` returns::
 
   partition, offset_hex, size_hex, data_hex
