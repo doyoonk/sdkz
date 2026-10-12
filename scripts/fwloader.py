@@ -14,7 +14,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-MAX_IMAGE_SIZE = 64 * 1024 * 1024
+MAX_IMAGE_SIZE = 0x7fffffff  # Matches the HU flash offset/partition size range.
 
 
 class HuError(RuntimeError):
@@ -95,7 +95,7 @@ def read_hex(path):
                         segments.append((absolute, data))
                         total += count
                         if total > MAX_IMAGE_SIZE:
-                            raise ValueError("image exceeds 64 MiB")
+                            raise ValueError("HEX data exceeds HU partition size limit")
                 elif kind == 1 and count == 0 and address == 0:
                     eof = True
                 elif kind in (2, 4) and count == 2 and address == 0:
@@ -136,7 +136,7 @@ class Partition:
         # Ignore mapped address and image type from older firmware.
         chunk = fields[5] if len(fields) == 6 else fields[6]
         p = cls(fields[0], *(int(x, 16) for x in fields[1:5]), int(chunk, 16))
-        if (p.name not in ("boot_partition", "slot0", "slot1") or
+        if (not p.name.strip() or any(ord(c) < 32 or ord(c) > 126 for c in p.name) or
                 not 0 < p.size <= MAX_IMAGE_SIZE or not 0 < p.write_size <= p.chunk_size <= 256 or
                 p.size % p.write_size or not 0 <= p.erased <= 255 or
                 not 0 <= p.offset <= 0x7fffffff):
@@ -240,7 +240,7 @@ def main(argv=None):
     parser.add_argument("file", type=Path, help="Intel HEX file, normally zephyr.signed[.confirmed].hex")
     parser.add_argument("--port", "-p", required=True, help="HU serial port (e.g. COM3 or /dev/ttyACM0)")
     parser.add_argument("--partition", "-t", required=True,
-                        choices=("slot0", "slot1", "inactive", "boot_partition", "boot", "mcuboot"))
+                        help="boot, slot0, slot1, inactive, or a DTS partition name/label/path")
     parser.add_argument("--baud", "-b", type=int, default=115200)
     parser.add_argument("--data-bits", type=int, choices=(5, 6, 7, 8), default=8)
     parser.add_argument("--parity", choices=("N", "E", "O", "M", "S"), default="N")
@@ -264,7 +264,9 @@ def main(argv=None):
     try:
         segments = read_hex(args.file)
         import serial
-        name = "boot_partition" if args.partition in ("boot", "mcuboot") else args.partition
+        name = args.partition
+        if not name.strip() or any(ord(c) < 32 or ord(c) > 126 for c in name):
+            raise ValueError("Invalid partition name")
         last = [0.0]
 
         def progress(phase, done, total):
@@ -294,7 +296,7 @@ def main(argv=None):
                 client.request("reboot")
                 print("Reboot requested.")
         return 0
-    except (OSError, ValueError, RuntimeError, ImportError) as error:
+    except (OSError, ValueError, RuntimeError, ImportError, MemoryError) as error:
         print(f"fwloader: {error}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:

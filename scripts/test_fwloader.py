@@ -122,7 +122,7 @@ class LoaderTests(unittest.TestCase):
                                   record(0, (start & 65535) + 16, b"tail") +
                                   record(0, start & 65535, b"head") +
                                   record(5, data=b"\x70\x08\x00\x00") + record(1))
-            for target in ("slot0", "slot1", "inactive", "boot_partition"):
+            for target in ("slot0", "slot1", "inactive", "boot", "scratch", "storage", "littlefs", "slot7_partition"):
                 with self.subTest(start=start, target=target):
                     board = Board()
                     part = Partition.query(board, target)
@@ -134,7 +134,7 @@ class LoaderTests(unittest.TestCase):
                     self.assertTrue(all(call[1] == part.name for call in board.calls[1:]))
 
     def test_raw_default_for_all_partitions(self):
-        for name in ("boot_partition", "slot0", "slot1"):
+        for name in ("boot", "slot0", "slot1"):
             part = Partition(name, 0, 512, 8, 255, 256)
             image = prepare_image([(0x70080000, b"arbitrary image")], part)
             self.assertEqual(image[:15], b"arbitrary image")
@@ -255,6 +255,33 @@ class LoaderTests(unittest.TestCase):
                 return fields
         with self.assertRaises(ValueError):
             Partition.query(WrongTarget(), "slot0")
+
+    def test_large_partition_geometry(self):
+        class Large(Board):
+            size = "7000000"
+            def request(self, *args, **kwargs):
+                fields = super().request(*args, **kwargs)
+                fields[2] = self.size
+                fields[3] = "1"
+                return fields
+        board = Large()
+        self.assertEqual(Partition.query(board, "littlefs").size, 112 * 1024 * 1024)
+        board.size = "7fffffff"
+        self.assertEqual(Partition.query(board, "littlefs").size, 0x7fffffff)
+        board.size = "80000000"
+        with self.assertRaises(ValueError):
+            Partition.query(board, "littlefs")
+
+    def test_cli_boot_and_custom_partition_names(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "fw.hex"
+            path.write_text(record(4, data=b"\x70\x08") + record(0, 0, b"data") + record(1))
+            for name in ("boot", "storage", "littlefs", "scratch_partition", "image-3"):
+                board = Board()
+                with patch("serial.Serial", return_value=MagicMock()), patch("fwloader.HuSerial", return_value=board):
+                    self.assertEqual(main([str(path), "--port", "test", "--partition", name]), 0)
+                self.assertEqual(board.calls[0], ("flash_info", name))
+                self.assertIn(("erase", name), board.calls)
 
     def test_serial_crc_fragment_and_sequence(self):
         port = SerialPort()

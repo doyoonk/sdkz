@@ -43,28 +43,58 @@ struct fixed_partition
     uint8_t id;
 };
 
-static struct fixed_partition fixed_partitions[] =
-{
+/* Follow Zephyr's default flash map, including subpartitions and mapped areas.
+ * Register each node label, its label property, and its unique DTS path.
+ */
+#define HU_PARTITION_ID(node) \
+    (DT_PARTITION_ID(node) + ZERO_OR_COMPILE_ERROR(DT_PARTITION_ID(node) <= UINT8_MAX))
+#define HU_NODELABEL_ENTRY(label, node) { STRINGIFY(label), HU_PARTITION_ID(node) },
+#define HU_PARTITION_ENTRIES(node) \
+    DT_FOREACH_NODELABEL_VARGS(node, HU_NODELABEL_ENTRY, node) \
+    { DT_PROP_OR(node, label, NULL), HU_PARTITION_ID(node) }, \
+    { DT_NODE_PATH(node), HU_PARTITION_ID(node) },
+#define HU_FIXED_ENTRY(node) \
+    COND_CODE_1(DT_NODE_HAS_COMPAT(DT_PARENT(node), fixed_partitions), \
+        (COND_CODE_1(DT_NODE_HAS_STATUS_OKAY(DT_MTD_FROM_PARTITION(node)), \
+            (HU_PARTITION_ENTRIES(node)), ())), \
+        (COND_CODE_1(DT_NODE_HAS_STATUS_OKAY(DT_MTD_FROM_FIXED_SUBPARTITION(node)), \
+            (HU_PARTITION_ENTRIES(node)), ())))
+#define HU_FIXED_TABLE(node) DT_FOREACH_CHILD(node, HU_FIXED_ENTRY)
+#define HU_MAPPED_ENTRY(node) \
+    COND_CODE_1(DT_NODE_HAS_STATUS_OKAY(node), \
+        (COND_CODE_1(DT_NODE_HAS_STATUS_OKAY(DT_MTD_FROM_MAPPED_PARTITION(node)), \
+            (HU_PARTITION_ENTRIES(node)), ())), ())
+
+static const struct fixed_partition fixed_partitions[] = {
 #if FIXED_PARTITION_EXISTS(boot_partition)
-    { "boot_partition", PARTITION_ID(boot_partition) },
+    { "boot", HU_PARTITION_ID(DT_NODELABEL(boot_partition)) },
 #endif
 #if FIXED_PARTITION_EXISTS(slot0_partition)
-    { "slot0", PARTITION_ID(slot0_partition) },
+    { "slot0", HU_PARTITION_ID(DT_NODELABEL(slot0_partition)) },
 #endif
 #if FIXED_PARTITION_EXISTS(slot1_partition)
-    { "slot1", PARTITION_ID(slot1_partition) },
+    { "slot1", HU_PARTITION_ID(DT_NODELABEL(slot1_partition)) },
 #endif
+    DT_FOREACH_STATUS_OKAY(zephyr_mapped_partition, HU_MAPPED_ENTRY)
+    DT_FOREACH_STATUS_OKAY(fixed_partitions, HU_FIXED_TABLE)
+    DT_FOREACH_STATUS_OKAY(fixed_subpartitions, HU_FIXED_TABLE)
+    { NULL, 0 },
 };
 static int last_size;
 
 static int get_partition_id(const char* partition_name)
 {
-    for (size_t i = 0; i < ARRAY_SIZE(fixed_partitions); i ++)
-    {
-        if (strcmp(partition_name, fixed_partitions[i].partition_name) == 0)
-            return fixed_partitions[i].id;
+    int id = -EINVAL;
+
+    for (size_t i = 0; i < ARRAY_SIZE(fixed_partitions); i++) {
+        if (fixed_partitions[i].partition_name != NULL &&
+            strcmp(partition_name, fixed_partitions[i].partition_name) == 0) {
+            /* Duplicate labels on different devices must not select arbitrarily. */
+            if (id >= 0 && id != fixed_partitions[i].id) return -EINVAL;
+            id = fixed_partitions[i].id;
+        }
     }
-    return -EINVAL;
+    return id;
 }
 
 static int open_flash_partition(const char* partition_name, const struct flash_area** fa)
@@ -321,7 +351,8 @@ static void _flash_info(void *h, int argc, const char **argv)
 
     if (rc == 0) {
         for (size_t i = 0; i < ARRAY_SIZE(fixed_partitions); i++) {
-            if (fixed_partitions[i].id == fa->fa_id) {
+            if (fixed_partitions[i].partition_name != NULL &&
+                fixed_partitions[i].id == fa->fa_id) {
                 part = &fixed_partitions[i];
                 break;
             }
@@ -334,7 +365,8 @@ static void _flash_info(void *h, int argc, const char **argv)
     }
     _set_status(h, rc);
     if (rc == 0) {
-        hupacket_record_str(h, NULL, part->partition_name);
+        hupacket_record_str(h, NULL, strcmp(argv[1], "inactive") == 0 ?
+                            part->partition_name : argv[1]);
         hupacket_record_hex(h, NULL, fa->fa_off);
         hupacket_record_hex(h, NULL, fa->fa_size);
         hupacket_record_hex(h, NULL, params->write_block_size);

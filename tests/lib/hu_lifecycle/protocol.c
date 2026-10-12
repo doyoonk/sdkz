@@ -47,7 +47,14 @@ char *itoa(int value,char *str,int base) {
 int bootloader_active_slot(uint8_t *slot) { *slot=active_slot;return slot_error; }
 int flash_area_open(uint8_t id,const struct flash_area **fa) {
     if(open_error)return open_error;
-    assert(id==1 || id==2 || id==3);*fa=&areas[id==1 ? 2 : id-2];last_id=id;opens++;return 0;
+    static struct flash_area extra[256];
+    if (id >= 4) {
+        extra[id]=(struct flash_area){id,(off_t)id*4096,4096,&test_external_flash};
+        *fa=&extra[id];
+    } else {
+        assert(id==1 || id==2 || id==3);*fa=&areas[id==1 ? 2 : id-2];
+    }
+    last_id=id;opens++;return 0;
 }
 void flash_area_close(const struct flash_area *fa) { assert(fa);closes++; }
 int flash_area_write(const struct flash_area *fa,off_t off,const void *src,size_t len) {
@@ -288,6 +295,29 @@ int main(void) {
     defined(CONFIG_FLASH_PAGE_LAYOUT)
     test_write_protection(h);
 #endif
+    assert(get_partition_id("boot")==1);
+    assert(get_partition_id("mcuboot")==1);
+    assert(get_partition_id("storage_partition")==4);
+    assert(get_partition_id("storage")==4);
+    assert(get_partition_id("scratch")==5);
+    assert(get_partition_id("slot2_partition")==6);
+    assert(get_partition_id("image-2")==6);
+    assert(get_partition_id("last")==255);
+    assert(get_partition_id("sub")==7);
+    assert(get_partition_id("mapped")==8);
+    assert(get_partition_id("/test/unlabeled_partition")==13);
+    assert(get_partition_id("duplicate")==-EINVAL);
+    assert(get_partition_id("duplicate_a")==9);
+    assert(get_partition_id("/test/duplicate_b")==10);
+    assert(get_partition_id("offline")==-EINVAL);
+    assert(get_partition_id("disabled")==-EINVAL);
+    valid(h,5,"flash_info:8\36boot");status(0);assert(last_id==1);
+    expected_reply(6,"flash_info:8\36" "0\36boot\36" "2000\36" "1000\36" "1\36" "ff\36" "100");
+    valid(h,5,"flash_info:8\36last");status(0);assert(last_id==255);
+    flash_request(h,"scratch","0","4","z",0);assert(last_id==5);
+    valid(h,5,"flash_read:9\36scratch\36" "0\36" "4");status(0);
+    expected_reply(6,"flash_read:9\36" "0\36scratch\36" "0\36" "4\36" "00000000");
+    puts("PASS: DTS partition labels, paths, subpartitions, mapped partitions and ID 255");
     valid(h,5,"flash_info:8\36boot_partition");status(0);assert(last_id==1);
     expected_reply(6,"flash_info:8\36" "0\36boot_partition\36" "2000\36" "1000\36" "1\36" "ff\36" "100");
     flash_request(h,"boot_partition","0","4","z",0);assert(last_id==1);

@@ -5,7 +5,7 @@ Run from the workspace root. Python 3.10+ and ``pyserial`` are required::
 
   python -m pip install pyserial
   python sdk/scripts/fwloader.py --port COM3 --baud 115200 --partition slot0 builds/stm32n6570_dk/app/zephyr/zephyr.signed.confirmed.hex
-  python sdk/scripts/fwloader.py --port COM3 --partition boot_partition builds/stm32n6570_dk/mcuboot/zephyr/zephyr.signed.hex --reboot
+  python sdk/scripts/fwloader.py --port COM3 --partition boot builds/stm32n6570_dk/mcuboot/zephyr/zephyr.signed.hex --reboot
 
 Use the HU protocol port: on the current board COM3 is HU USB CDC, COM5 is
 MicroPython and COM15 is the Zephyr shell/ST-Link console. Linux serial port
@@ -51,9 +51,13 @@ Transfer behavior
   restoration succeed. ``--dry-run`` only queries and validates; ``--verify-only``
   compares without erase, write or protection changes.
 
-``slot0``, ``slot1``, ``inactive`` and ``boot_partition`` are supported.
-``boot`` and ``mcuboot`` are aliases for ``boot_partition``. ``inactive`` is
-resolved once into its concrete slot. The selected partition determines the
+Use ``boot``, ``slot0`` or ``slot1`` for bootloader/application partitions.
+All partitions in Zephyr's DTS flash map are registered automatically, including
+fixed partitions, fixed subpartitions and mapped partitions. Their node labels
+(e.g. ``storage_partition``), label properties (e.g. ``storage`` or ``littlefs``)
+and full DTS paths can be passed to ``--partition``. Ambiguous labels shared by
+different partitions are rejected; use a unique node label or full path.
+``inactive`` is resolved once into its concrete application slot. The selected partition determines the
 download destination regardless of the HEX's original address. The lowest HEX
 data address becomes partition offset zero. Relative offsets and gaps between
 records are preserved; payload bytes are unchanged. Neither the original HEX
@@ -85,6 +89,16 @@ The STM32 signing tool must be in PATH, as required by the Zephyr SoC build::
 MCUboot is overwritten directly and has no fallback bootloader slot here; an
 interrupted update may require BOOT1 ON/H and ST-Link recovery. The current
 STM32 XSPI driver does not support ``wrprt`` and returns ``-ENOTSUP``.
+
+Partition count
+---------------
+
+In the Zephyr source used by this workspace, ``flash_area.fa_id`` and
+``flash_area_open()`` use an 8-bit ID: 0 through 255, up to 256 unique IDs
+across the system. The DTS generator numbers fixed, subpartition and mapped
+nodes in one sequence. It does not cap this sequence at 255. HU rejects IDs
+above 255 at compile time instead of truncating them. There is no separate
+three-partition limit in HU.
 
 Protocol additions
 ------------------
