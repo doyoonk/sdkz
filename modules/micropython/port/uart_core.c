@@ -35,6 +35,19 @@
 #include <zephyr/console/tty.h>
 #include <zephyr/drivers/uart.h>
 
+#if DT_HAS_CHOSEN(micropy_console)
+#define MICROPY_CONSOLE_NODE DT_CHOSEN(micropy_console)
+#elif defined(CONFIG_MICROPYTHON_STANDALONE)
+#define MICROPY_CONSOLE_NODE DT_CHOSEN(zephyr_console)
+#else
+#error "Embedded MicroPython requires a dedicated micropy,console"
+#endif
+
+#if defined(CONFIG_SHELL_BACKEND_SERIAL)
+BUILD_ASSERT(!DT_SAME_NODE(MICROPY_CONSOLE_NODE, DT_CHOSEN(zephyr_shell_uart)),
+    "MicroPython and the serial shell must use different UART devices");
+#endif
+
 
 #ifdef CONFIG_CONSOLE_SUBSYS
 
@@ -99,7 +112,7 @@ mp_uint_t mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
     }
     #else
     static const struct device *uart_console_dev =
-        DEVICE_DT_GET(DT_CHOSEN(micropy_console));
+        DEVICE_DT_GET(MICROPY_CONSOLE_NODE);
 
     while (len--) {
         uart_poll_out(uart_console_dev, *str++);
@@ -116,7 +129,7 @@ int mp_console_init(void) {
     const struct device *uart_dev;
     int ret;
 
-    uart_dev = DEVICE_DT_GET(DT_CHOSEN(micropy_console));
+    uart_dev = DEVICE_DT_GET(MICROPY_CONSOLE_NODE);
     if (!device_is_ready(uart_dev)) {
         return -ENODEV;
     }

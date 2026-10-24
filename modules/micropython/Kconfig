@@ -7,6 +7,16 @@ config ZEPHYR_MICROPYTHON_MODULE
 config MICROPYTHON
 	bool "MicroPython"
 
+config MICROPYTHON_STANDALONE
+	bool "Run MicroPython as the standalone application"
+	depends on MICROPYTHON && CONSOLE_SUBSYS
+	help
+	  Provide main() and run MicroPython on the Zephyr main thread.
+	  The application must not provide another main(). Use micropy,console
+	  when specified, otherwise use zephyr,console exclusively for the REPL.
+	  Configure MAIN_STACK_SIZE for the interpreter's stack requirements.
+	  When disabled, run on a separate thread with a dedicated micropy,console.
+
 config MICROPYTHON_THREAD_STACK_SIZE
 	int
 	default 4736

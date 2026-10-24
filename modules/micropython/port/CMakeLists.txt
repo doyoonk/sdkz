@@ -61,6 +61,10 @@ endif()
 
 dt_chosen(has_port PROPERTY "micropy,console")
 
+if(CONFIG_CONSOLE_SUBSYS AND NOT DEFINED has_port AND NOT CONFIG_MICROPYTHON_STANDALONE)
+    message(FATAL_ERROR "Embedded MicroPython requires a dedicated micropy,console")
+endif()
+
 set(MICROPY_SOURCE_PORT
     main.c
     help.c
@@ -80,7 +84,7 @@ set(MICROPY_SOURCE_PORT
     zephyr_regulator.c
     mpthreadport.c
 )
-if (CONFIG_CONSOLE_SUBSYS AND (DEFINED has_port))
+if (CONFIG_CONSOLE_SUBSYS AND (DEFINED has_port OR CONFIG_MICROPYTHON_STANDALONE))
     list(APPEND MICROPY_SOURCE_PORT uart_core.c)
 else()
     list(APPEND MICROPY_SOURCE_PORT shellcmd.c)

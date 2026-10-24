@@ -137,16 +137,6 @@ void init_zephyr(void) {
 }
 
 int real_main(void) {
-    /* Initialize terminal device */
-    #ifdef CONFIG_CONSOLE_SUBSYS
-    console_init();
-    /* Always immediately hand control back to micropython */
-    console_set_rx_timeout(K_NO_WAIT);
-    console_set_tx_timeout(K_NO_WAIT);
-    #else
-    zephyr_getchar_init();
-    #endif
-
     #if MICROPY_PY_THREAD
     struct k_thread *z_thread = (struct k_thread *)k_current_get();
     mp_thread_init((void *)z_thread->stack_info.start, z_thread->stack_info.size / sizeof(uintptr_t));
@@ -156,7 +146,11 @@ int real_main(void) {
     mp_hal_init();
 
 soft_reset:
+    #if defined(CONFIG_MICROPYTHON_STANDALONE)
+    mp_cstack_init_with_sp_here(CONFIG_MAIN_STACK_SIZE);
+    #else
     mp_cstack_init_with_sp_here(CONFIG_MICROPYTHON_THREAD_STACK_SIZE);
+    #endif
     #if MICROPY_ENABLE_GC
     #if CONFIG_SHARED_MULTI_HEAP
     heap = shared_multi_heap_aligned_alloc(SMH_REG_ATTR_EXTERNAL, 16, MICROPY_HEAP_SIZE);

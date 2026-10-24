@@ -29,14 +29,31 @@
 int real_main(void);
 int mp_console_init(void);
 
-static void _main(void) {
+static int micropython_start(void) {
     #ifdef CONFIG_CONSOLE_SUBSYS
-    mp_console_init();
+    int ret = mp_console_init();
+    if (ret != 0) {
+        printk("MicroPython console initialization failed (%d)\n", ret);
+        return ret;
+    }
     #else
     zephyr_getchar_init();
     #endif
-    real_main();
+    return real_main();
+}
+
+#if defined(CONFIG_MICROPYTHON_STANDALONE)
+int main(void) {
+    return micropython_start();
+}
+#else
+static void _main(void *a, void *b, void *c) {
+    ARG_UNUSED(a);
+    ARG_UNUSED(b);
+    ARG_UNUSED(c);
+    (void)micropython_start();
 }
 
 K_THREAD_DEFINE(micorpy, CONFIG_MICROPYTHON_THREAD_STACK_SIZE,
                 _main, NULL, NULL, NULL, 7, 0, 0);
+#endif
