@@ -13,7 +13,6 @@
 	};
 
 	chosen {
-		mcuboot,image-ram = &axisrama;
 		zephyr,bootloader-info = &boot_info0;
 	};
 	/* Reserve the final 1 KiB; backup_sram owns hardware initialization. */
@@ -104,9 +103,14 @@
 	status = "okay";
 };
 
+&axisram12 {
+	ranges = <0x34000000 0x34000000 DT_SIZE_K(4224)>;
+};
+
 &axisram1 {
 	compatible = "mmio-sram";
 	/delete-property/ zephyr,memory-region;
+	reg = <0x34000000 DT_SIZE_K(4224)>;
 };
 
 &axisram2 {
@@ -115,7 +119,6 @@
 };
 
 &axisram3 {
-	/* Keep RAMCFG initialization, without a second linker/MPU region. */
 	compatible = "mmio-sram";
 	/delete-property/ zephyr,memory-region;
 	/delete-property/ zephyr,memory-attr;
@@ -123,7 +126,6 @@
 };
 
 &axisram4 {
-	/* Keep RAMCFG initialization, without a second linker/MPU region. */
 	compatible = "mmio-sram";
 	/delete-property/ zephyr,memory-region;
 	/delete-property/ zephyr,memory-attr;
@@ -131,7 +133,6 @@
 };
 
 &axisram5 {
-	/* Keep RAMCFG initialization, without a second linker/MPU region. */
 	compatible = "mmio-sram";
 	/delete-property/ zephyr,memory-region;
 	/delete-property/ zephyr,memory-attr;
@@ -139,7 +140,6 @@
 };
 
 &axisram6 {
-	/* Keep RAMCFG initialization, without a second linker/MPU region. */
 	compatible = "mmio-sram";
 	/delete-property/ zephyr,memory-region;
 	/delete-property/ zephyr,memory-attr;

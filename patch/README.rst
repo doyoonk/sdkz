@@ -6,8 +6,8 @@ Keep these patches with the SDK so a fresh workspace can reproduce the build.
 
 Current baseline:
 
-* Zephyr: bbc6385f0a2c (v4.5.0-rc1 development tree).
-* MCUboot: a8ffd2c312910cc648219bcb29e04260f7857492.
+* Zephyr: 2a9e8ac155a3 (v4.5.0-rc3 development tree).
+* MCUboot: 725d63c9 (v2.5.0).
 
 From the west workspace root, apply to clean dependency checkouts::
 
@@ -54,12 +54,13 @@ this initialization by default; it can explicitly enable the same option.
 AXISRAM3-6 continue to use Zephyr's existing RAMCFG initialization through
 their enabled DTS nodes.
 
-The SDK ``st/n6/stm32n657x0-sram.dtsi`` defines ``axisrama`` at
-``0x24000000`` with 4224 KiB, including CACHEAXI RAM and VENCRAM, and
-``axisramb`` at ``0x24180400`` with 511 KiB. The application enables
-``axisrama`` and selects it as ``zephyr,sram``. The common overlay selects
-``axisrama`` as ``mcuboot,image-ram``. Both FSBL and SB overlays enable
-``axisramb`` and select it as ``zephyr,sram``.
+The common SDK board overlay extends the upstream ``axisram12`` address
+translation range and ``axisram1`` to 4224 KiB at ``0x34000000``, including
+CACHEAXI RAM and VENCRAM. It retains ``axisram2`` at ``0x34180400`` with
+511 KiB. The inherited board settings select ``axisram1`` as the application's
+``zephyr,sram`` and as ``mcuboot,image-ram``. Both FSBL and SB inherit
+``axisram2`` as ``zephyr,sram``. The duplicate SDK ``axisrama`` and
+``axisramb`` nodes have been removed.
 
 VENCRAM is not also registered with the shared heap. The unused end of
 primary RAM is available to libc malloc. Although the image RAM window
@@ -68,8 +69,10 @@ Program the updated MCUboot before using the expanded application RAM.
 A direct debugger launch must provide equivalent memory initialization
 before starting the application.
 
-The upstream STM32N6 ``ram_check.ld`` still derives its boundary from
-``axisram2`` at the secure alias. With the application at ``0x24000000``,
-that assertion does not enforce the physical bootloader boundary. Check
-the complete RAM-loaded image, including its header and TLVs, against
-``0x24180400`` when changing image size or load address.
+The upstream STM32N6 ``ram_check.ld`` derives its boundary from
+``axisram2``. Both images now use the same secure address alias, but the
+assertion checks ``__kernel_ram_start``, not the entire RAM-loaded image.
+Check the complete image, including its header and TLVs, against
+``0x34180400`` when changing image size or load address. The application's
+unused primary SRAM becomes available to libc malloc after MCUboot hands
+over control; the bootloader's RAM is not a second independent memory bank.

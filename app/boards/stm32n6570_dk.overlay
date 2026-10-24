@@ -35,7 +35,6 @@
 	};
 
 	chosen {
-		zephyr,sram = &axisrama;
 		zephyr,dtcm = &dtcm;
 		zephyr,itcm = &itcm;
 		micropy,console = &cdc_acm_uart1;
@@ -106,10 +105,6 @@
 };
 
 &ahbsram2 {
-	status = "okay";
-};
-
-&axisrama {
 	status = "okay";
 };
 

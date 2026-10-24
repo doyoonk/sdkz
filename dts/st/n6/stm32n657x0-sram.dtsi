@@ -73,18 +73,6 @@
 		};
 	};
 
-	axisrama: memory@24000000 {
-		compatible = "mmio-sram";
-		reg = <0x24000000 DT_SIZE_K(4224)>;
-		status = "disabled";
-	};
-
-	axisramb: memory@24180400 {
-		compatible = "mmio-sram";
-		reg = <0x24180400 DT_SIZE_K(511)>;
-		status = "disabled";
-	};
-
 	itcm: memory@10000000 {
 		compatible = "zephyr,memory-region", "arm,itcm";
 		reg = <0x10000000 DT_SIZE_K(64)>;
