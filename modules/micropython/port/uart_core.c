@@ -43,13 +43,18 @@
 #error "Embedded MicroPython requires a dedicated micropy,console"
 #endif
 
+#if defined(CONFIG_MICROPY_GETCHAR_CONSOLE_DRIVER)
+BUILD_ASSERT(DT_SAME_NODE(MICROPY_CONSOLE_NODE, DT_CHOSEN(zephyr_console)),
+    "The console driver backend requires zephyr,console; use the subsystem for a separate UART");
+#endif
+
 #if defined(CONFIG_SHELL_BACKEND_SERIAL)
 BUILD_ASSERT(!DT_SAME_NODE(MICROPY_CONSOLE_NODE, DT_CHOSEN(zephyr_shell_uart)),
     "MicroPython and the serial shell must use different UART devices");
 #endif
 
 
-#ifdef CONFIG_CONSOLE_SUBSYS
+#ifdef CONFIG_MICROPY_GETCHAR_CONSOLE_SUBSYS
 
 static int mp_console_putchar(char c);
 static int mp_console_getchar(void);
@@ -60,7 +65,7 @@ static struct tty_serial mp_console_serial;
 static uint8_t mp_console_rxbuf[CONFIG_CONSOLE_GETCHAR_BUFSIZE];
 static uint8_t mp_console_txbuf[CONFIG_CONSOLE_PUTCHAR_BUFSIZE];
 
-#endif  // CONFIG_CONSOLE_SUBSYS
+#endif  // CONFIG_MICROPY_GETCHAR_CONSOLE_SUBSYS
 
 /*
  * Core UART functions to implement for a port
@@ -69,7 +74,7 @@ static uint8_t mp_console_txbuf[CONFIG_CONSOLE_PUTCHAR_BUFSIZE];
 uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
     uintptr_t ret = 0;
     if (poll_flags & MP_STREAM_POLL_RD) {
-        #ifdef CONFIG_CONSOLE_SUBSYS
+        #ifdef CONFIG_MICROPY_GETCHAR_CONSOLE_SUBSYS
         // It's not easy to test if tty is readable, so just unconditionally set it for now.
         ret |= MP_STREAM_POLL_RD;
         #else
@@ -88,7 +93,7 @@ uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
 int mp_hal_stdin_rx_chr(void) {
     for (;;) {
         int _chr;
-        #ifdef CONFIG_CONSOLE_SUBSYS
+        #ifdef CONFIG_MICROPY_GETCHAR_CONSOLE_SUBSYS
         _chr = mp_console_getchar();
         #else
         _chr = zephyr_getchar();
@@ -103,10 +108,11 @@ int mp_hal_stdin_rx_chr(void) {
 // Send string of given length
 mp_uint_t mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
     mp_uint_t ret = len;
-    #ifdef CONFIG_CONSOLE_SUBSYS
+    #ifdef CONFIG_MICROPY_GETCHAR_CONSOLE_SUBSYS
     while (len--) {
         char c = *str++;
-        while (mp_console_putchar(c) == -1) {
+        /* tty_write returns -EAGAIN when no TX buffer space is available. */
+        while (mp_console_putchar(c) == -EAGAIN) {
             mp_event_wait_ms(1);
         }
     }
@@ -122,7 +128,7 @@ mp_uint_t mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
 }
 
 
-#ifdef CONFIG_CONSOLE_SUBSYS
+#ifdef CONFIG_MICROPY_GETCHAR_CONSOLE_SUBSYS
 
 int mp_console_init(void) {
 
@@ -174,4 +180,4 @@ static int mp_console_getchar(void) {
     return c;
 }
 
-#endif  // CONFIG_CONSOLE_SUBSYS
+#endif  // CONFIG_MICROPY_GETCHAR_CONSOLE_SUBSYS

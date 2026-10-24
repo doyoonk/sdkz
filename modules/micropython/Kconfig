@@ -9,7 +9,7 @@ config MICROPYTHON
 
 config MICROPYTHON_STANDALONE
 	bool "Run MicroPython as the standalone application"
-	depends on MICROPYTHON && CONSOLE_SUBSYS
+	depends on MICROPYTHON
 	help
 	  Provide main() and run MicroPython on the Zephyr main thread.
 	  The application must not provide another main(). Use micropy,console

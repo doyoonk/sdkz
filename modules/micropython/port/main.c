@@ -41,12 +41,11 @@
 
 #include <zephyr/storage/flash_map.h>
 
-#ifdef CONFIG_CONSOLE_SUBSYS
-#include <zephyr/console/console.h>
-
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(micropy, LOG_LEVEL_INF);
 
+#ifdef CONFIG_MICROPY_GETCHAR_CONSOLE_SUBSYS
+#include <zephyr/console/console.h>
 
 #if CONFIG_CONSOLE_GETCHAR_BUFSIZE < 512
 #warning A Console getchar buffer size over 512 bytes is recommended to handle fast input
@@ -137,8 +136,9 @@ void init_zephyr(void) {
 }
 
 int real_main(void) {
+    struct k_thread *z_thread = k_current_get();
+    ARG_UNUSED(z_thread);
     #if MICROPY_PY_THREAD
-    struct k_thread *z_thread = (struct k_thread *)k_current_get();
     mp_thread_init((void *)z_thread->stack_info.start, z_thread->stack_info.size / sizeof(uintptr_t));
     #endif
 

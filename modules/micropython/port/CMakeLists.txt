@@ -61,7 +61,7 @@ endif()
 
 dt_chosen(has_port PROPERTY "micropy,console")
 
-if(CONFIG_CONSOLE_SUBSYS AND NOT DEFINED has_port AND NOT CONFIG_MICROPYTHON_STANDALONE)
+if(NOT DEFINED has_port AND NOT CONFIG_MICROPYTHON_STANDALONE)
     message(FATAL_ERROR "Embedded MicroPython requires a dedicated micropy,console")
 endif()
 
@@ -77,17 +77,18 @@ set(MICROPY_SOURCE_PORT
     modzephyr.c
     modzsensor.c
     mphalport.c
+    uart_core.c
     zephyr_device.c
     zephyr_storage.c
     zephyr_filesystem.c
     zephyr_display.c
     zephyr_regulator.c
     mpthreadport.c
+    zephyr_device_api_kind.c
+    zephyr_pinctrl.c
 )
-if (CONFIG_CONSOLE_SUBSYS AND (DEFINED has_port OR CONFIG_MICROPYTHON_STANDALONE))
-    list(APPEND MICROPY_SOURCE_PORT uart_core.c)
-else()
-    list(APPEND MICROPY_SOURCE_PORT shellcmd.c)
+if(NOT CONFIG_MICROPY_GETCHAR_CONSOLE_SUBSYS AND NOT CONFIG_MICROPY_GETCHAR_CONSOLE_DRIVER)
+    message(FATAL_ERROR "Select a MicroPython getchar driver")
 endif()
 list(TRANSFORM MICROPY_SOURCE_PORT PREPEND ${MICROPY_PORT_DIR}/)
 
@@ -176,6 +177,8 @@ zephyr_library_include_directories(
     ${MICROPY_PORT_DIR}
     ${MICROPY_INC_USERMOD}
     ${CMAKE_BINARY_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${DTS_ROOT_SYSTEM_INCLUDE_DIRS}
 )
 
 zephyr_library_compile_options(
@@ -198,12 +201,88 @@ endif()
 
 zephyr_library_sources(${MICROPY_SOURCE_QSTR})
 zephyr_library_sources(src/zephyr_start.c)
-if(NOT CONFIG_CONSOLE_SUBSYS)
+if(CONFIG_MICROPY_GETCHAR_CONSOLE_DRIVER)
     zephyr_library_sources(src/zephyr_getchar.c)
 endif()
 zephyr_library_link_libraries(kernel)
 
 include(${MICROPY_DIR}/py/mkrules.cmake)
 
+# Backend/device options alter QSTRs even if the C source is unchanged.
+add_custom_command(OUTPUT ${MICROPY_QSTRDEFS_LAST} APPEND
+    DEPENDS ${AUTOCONF_H} ${ZEPHYR_BINARY_DIR}/include/generated/zephyr/devicetree_generated.h
+        ${MICROPY_PORT_DIR}/mpconfigport.h)
+
 add_dependencies(BUILD_VERSION_HEADER zephyr_generated_headers)
 add_dependencies(${MICROPY_TARGET} zephyr_generated_headers)
+
+if (CONFIG_MICROPY_DYNAMIC_PINCTRL)
+    if (CONFIG_MICROPY_DYNAMIC_PINCTRL_GENERATE_PINMUX AND NOT CONFIG_MICROPY_DYNAMIC_PINCTRL_CUSTOM_GENERATOR)
+
+        unset(MICROPY_DYNAMIC_PINCTRL_HEADER_FOUND CACHE)
+        find_file(
+            MICROPY_DYNAMIC_PINCTRL_HEADER_FOUND
+            NAMES ${CONFIG_MICROPY_DYNAMIC_PINCTRL_HEADER}
+            PATHS ${DTS_ROOT_SYSTEM_INCLUDE_DIRS}
+            REQUIRED
+        )
+
+        set(MICROPY_GENERATED_DYNAMIC_PINCTRL "${CMAKE_CURRENT_BINARY_DIR}/generated_dynamic_pinctrl.h")
+
+        string(REPLACE ";" ";-I;" DTS_ROOT_SYSTEM_INCLUDE_DIRS_STRING "-I${DTS_ROOT_SYSTEM_INCLUDE_DIRS}")
+
+        # Executed at configuration time to dump all the pinmux #define macros into a variable
+        execute_process(
+            COMMAND ${CMAKE_C_COMPILER}
+                ${DTS_ROOT_SYSTEM_INCLUDE_DIRS_STRING}
+                -dM -E ${MICROPY_DYNAMIC_PINCTRL_HEADER_FOUND}
+            OUTPUT_VARIABLE MICROPY_PROCESSED_DYNAMIC_PINCTRL_HEADER_DATA
+            COMMAND_ERROR_IS_FATAL ANY
+        )
+
+        # Parse defines via regex to identify the defines that are pinmux defines
+        message("Using regex: ${CONFIG_MICROPY_DYNAMIC_PINCTRL_REGEX} for PinCtrl module generation")
+        string(REGEX MATCHALL ${CONFIG_MICROPY_DYNAMIC_PINCTRL_REGEX} MICROPY_PROCESSED_DYNAMIC_PINCTRL_HEADER_DATA_REGEXED ${MICROPY_PROCESSED_DYNAMIC_PINCTRL_HEADER_DATA})
+
+        add_custom_command(
+            OUTPUT
+                ${MICROPY_GENERATED_DYNAMIC_PINCTRL}
+            DEPENDS ${MICROPY_DYNAMIC_PINCTRL_HEADER_FOUND}
+                ${MICROPY_PORT_DIR}/dynamic_pinctrl/generate_dynamic_pinctrl.py
+            COMMAND ${Python3_EXECUTABLE} ${MICROPY_PORT_DIR}/dynamic_pinctrl/generate_dynamic_pinctrl.py ${MICROPY_GENERATED_DYNAMIC_PINCTRL} ${MICROPY_PROCESSED_DYNAMIC_PINCTRL_HEADER_DATA_REGEXED}
+        )
+
+        add_custom_target(
+            generate_dynamic_pinctrl_target
+            DEPENDS ${MICROPY_GENERATED_DYNAMIC_PINCTRL}
+        )
+
+        add_dependencies(${MICROPY_TARGET} generate_dynamic_pinctrl_target)
+
+    elseif (CONFIG_MICROPY_DYNAMIC_PINCTRL_GENERATE_PINMUX AND CONFIG_MICROPY_DYNAMIC_PINCTRL_CUSTOM_GENERATOR)
+
+        set(MICROPY_GENERATED_DYNAMIC_PINCTRL "${CMAKE_CURRENT_BINARY_DIR}/generated_dynamic_pinctrl.h")
+
+        add_custom_command(
+            OUTPUT
+                ${MICROPY_GENERATED_DYNAMIC_PINCTRL}
+            DEPENDS ${CONFIG_MICROPY_DYNAMIC_PINCTRL_HEADER}
+                ${MICROPY_PORT_DIR}/${CONFIG_MICROPY_DYNAMIC_PINCTRL_SCRIPT}
+            COMMAND ${Python3_EXECUTABLE} ${MICROPY_PORT_DIR}/${CONFIG_MICROPY_DYNAMIC_PINCTRL_SCRIPT} ${MICROPY_GENERATED_DYNAMIC_PINCTRL} ${CONFIG_MICROPY_DYNAMIC_PINCTRL_HEADER} ${CONFIG_MICROPY_DYNAMIC_PINCTRL_ARG}
+        )
+
+        add_custom_target(
+            generate_dynamic_pinctrl_target
+            DEPENDS ${MICROPY_GENERATED_DYNAMIC_PINCTRL}
+        )
+
+        add_dependencies(${MICROPY_TARGET} generate_dynamic_pinctrl_target)
+
+    endif()
+endif()
+
+if(DEFINED MICROPY_GENERATED_DYNAMIC_PINCTRL)
+    # QSTR preprocessing includes zephyr_pinctrl.c before C compilation.
+    add_custom_command(OUTPUT ${MICROPY_QSTRDEFS_LAST} APPEND
+        DEPENDS ${MICROPY_GENERATED_DYNAMIC_PINCTRL})
+endif()

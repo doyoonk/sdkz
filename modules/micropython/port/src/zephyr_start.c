@@ -30,7 +30,7 @@ int real_main(void);
 int mp_console_init(void);
 
 static int micropython_start(void) {
-    #ifdef CONFIG_CONSOLE_SUBSYS
+    #ifdef CONFIG_MICROPY_GETCHAR_CONSOLE_SUBSYS
     int ret = mp_console_init();
     if (ret != 0) {
         printk("MicroPython console initialization failed (%d)\n", ret);
