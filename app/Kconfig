@@ -33,12 +33,17 @@ config BOARD_HAS_VBAT_BATTERY
 
 config APP_HEAP_SELF_TEST
 	bool "Test the selected SRAM heap at boot"
-	depends on HU_PALLOC || SHARED_MULTI_HEAP
+	depends on HU_PALLOC || SHARED_MULTI_HEAP || COMMON_LIBC_MALLOC
+	select SYS_HEAP_RUNTIME_STATS if SOC_SERIES_STM32N6X && COMMON_LIBC_MALLOC
 	help
 	  Test unused SRAM pools immediately after registration at boot.
 	  HU palloc takes priority; otherwise test the shared multi heap.
 	  Check allocation, alignment, memory patterns, reallocation and
 	  data preservation, then release every test allocation.
+	  On STM32N6 with the libc heap using unused primary SRAM, also test
+	  its maximum allocation after libc initialization and before device
+	  or application heap users. Check the SRAM end, uncached memory
+	  patterns and restored free space. A failure stops boot.
 	  A failed check stops application startup and reports an error.
 
 mainmenu "Video capture to LVGL sample application"

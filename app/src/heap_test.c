@@ -375,3 +375,138 @@ out:
 #undef CHECK
 }
 #endif /* !CONFIG_HU_PALLOC && CONFIG_SHARED_MULTI_HEAP */
+
+#ifdef APP_LIBC_SRAM_HEAP_TEST
+#include <stdlib.h>
+#include <sys_malloc.h>
+#include <zephyr/init.h>
+#include <zephyr/sys/printk.h>
+
+/* malloc_prepare runs at POST_KERNEL/LIBC. Test before normal device init
+ * and before static application threads start consuming the heap.
+ */
+#define LIBC_HEAP_TEST_PRIORITY UTIL_INC(CONFIG_KERNEL_INIT_PRIORITY_LIBC)
+BUILD_ASSERT(LIBC_HEAP_TEST_PRIORITY < CONFIG_KERNEL_INIT_PRIORITY_DEFAULT,
+    "Run the libc SRAM test before normal device initialization");
+
+static size_t libc_largest_payload(size_t limit)
+{
+    size_t low = 0, high = limit;
+
+    while (low < high) {
+        size_t mid = low + (high - low + 1) / 2;
+        void *p = malloc(mid);
+
+        if (p != NULL) {
+            free(p);
+            low = mid;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return low;
+}
+
+static uint32_t libc_test_pattern(uintptr_t address, unsigned pass)
+{
+    switch (pass) {
+    case 0: return 0x55555555U;
+    case 1: return 0xaaaaaaaaU;
+    case 2: return (uint32_t)address ^ 0x5a5aa5a5U;
+    default: return ~((uint32_t)address ^ 0x5a5aa5a5U);
+    }
+}
+
+int libc_sram_heap_self_test(void)
+{
+    const uintptr_t start = DT_REG_ADDR(DT_CHOSEN(zephyr_sram));
+    const uintptr_t end = start + DT_REG_SIZE(DT_CHOSEN(zephyr_sram));
+    struct sys_memory_stats before, after;
+    uint32_t *p = NULL;
+    size_t payload = 0;
+    int rc = -EFAULT;
+#define LIBC_CHECK(condition) do { \
+    if (!(condition)) { \
+        printk("heap_test: FAIL libc SRAM at line %d\n", __LINE__); \
+        goto out; \
+    } \
+} while (0)
+
+    printk("heap_test: libc SRAM allocation test [%p, %p)\n",
+        (void *)start, (void *)end);
+    LIBC_CHECK(malloc_runtime_stats_get(&before) == 0);
+    payload = libc_largest_payload(end - start);
+    LIBC_CHECK(payload >= sizeof(uint32_t) && payload % sizeof(uint32_t) == 0);
+    p = malloc(payload);
+    LIBC_CHECK(p != NULL && (uintptr_t)p % sizeof(uint32_t) == 0);
+    LIBC_CHECK((uintptr_t)p >= start && (uintptr_t)p < end &&
+        payload <= end - (uintptr_t)p);
+
+    uintptr_t payload_end = (uintptr_t)p + payload;
+    size_t tail = end - payload_end;
+
+    /* The end marker belongs to the allocator, not to malloc's caller.
+     * Require the payload to reach the last 32-byte SRAM cache line.
+     * Never write outside the returned allocation to cover that marker.
+     */
+    LIBC_CHECK(tail < 32U);
+    if (DT_REG_SIZE(DT_CHOSEN(zephyr_sram)) == 4224U * 1024U) {
+        /* Include all of CACHEAXIRAM and the allocatable VENCRAM tail. */
+        LIBC_CHECK((uintptr_t)p <= start + 3840U * 1024U);
+    }
+    printk("heap_test: libc payload [%p, %p), %zu bytes; tail %zu bytes reserved\n",
+        (void *)p, (void *)payload_end, payload, tail);
+
+    for (unsigned pass = 0; pass < 4; pass++) {
+        volatile uint32_t *words = p;
+
+        for (size_t i = 0; i < payload / sizeof(*p); i++) {
+            words[i] = libc_test_pattern((uintptr_t)&words[i], pass);
+        }
+        int cache_rc = sys_cache_data_flush_and_invd_range(p, payload);
+
+        LIBC_CHECK(cache_rc == 0 ||
+            (!IS_ENABLED(CONFIG_DCACHE) && cache_rc == -ENOTSUP));
+        for (size_t i = 0; i < payload / sizeof(*p); i++) {
+            uint32_t expected = libc_test_pattern((uintptr_t)&words[i], pass);
+            uint32_t actual = words[i];
+
+            if (actual != expected) {
+                printk("heap_test: libc mismatch %p pass %u: %08x != %08x\n",
+                    (void *)&words[i], pass, actual, expected);
+                goto out;
+            }
+        }
+    }
+    free(p);
+    p = NULL;
+    LIBC_CHECK(malloc_runtime_stats_get(&after) == 0);
+    LIBC_CHECK(after.free_bytes == before.free_bytes &&
+        after.allocated_bytes == before.allocated_bytes);
+    LIBC_CHECK(libc_largest_payload(end - start) == payload);
+    LIBC_CHECK(malloc_runtime_stats_get(&after) == 0);
+    LIBC_CHECK(after.free_bytes == before.free_bytes &&
+        after.allocated_bytes == before.allocated_bytes);
+    printk("heap_test: PASS libc SRAM: 4 patterns, cache flush/invalidate, "
+        "alloc/free restored; end %p, payload end %p, tail %zu\n",
+        (void *)end, (void *)payload_end, tail);
+    rc = 0;
+out:
+    free(p);
+    return rc;
+#undef LIBC_CHECK
+}
+
+static int libc_sram_heap_boot_test(void)
+{
+    int rc = libc_sram_heap_self_test();
+
+    if (rc != 0) {
+        printk("heap_test: libc SRAM test failed (%d), stopping boot\n", rc);
+        k_panic();
+    }
+    return rc;
+}
+
+SYS_INIT(libc_sram_heap_boot_test, POST_KERNEL, LIBC_HEAP_TEST_PRIORITY);
+#endif /* APP_LIBC_SRAM_HEAP_TEST */
