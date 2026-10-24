@@ -1,0 +1,15 @@
+# Copyright (c) 2025 HU Inc. All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Reserve STM32N6 CACHEAXI RAM (256 KiB) and VENCRAM (128 KiB) for system
+  SRAM. Enables their memory clocks and releases VENCRAM to the system,
+  without resetting or erasing memory. CACHEAXI must already be disabled.
+  NPU, NPU cache and VENC must remain disabled. The bootloader must include
+  this initialization before loading or starting an application using
+  these banks as primary RAM. This node creates no separate linker region.
+
+compatible: "st,stm32n6-system-sram"
+
+include: base.yaml

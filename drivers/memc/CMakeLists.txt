@@ -2,4 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 zephyr_library()
-zephyr_library_sources_ifdef(CONFIG_STM32N6_EXTRA_SRAM stm32n6_extra_sram.c)
+if(CONFIG_STM32N6_EXTRA_SRAM OR CONFIG_STM32N6_SYSTEM_SRAM)
+  zephyr_library_sources(stm32n6_extra_sram.c)
+endif()

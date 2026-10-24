@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 HU Inc.
+ * Copyright (c) 2025 HU Inc. All rights reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -7,7 +7,13 @@
 #include <st/n6/stm32n657x0-sram.dtsi>
 
 / {
+	/* MCUboot prepares these banks before loading the application. */
+	system_sram: system-sram {
+		compatible = "st,stm32n6-system-sram";
+	};
+
 	chosen {
+		mcuboot,image-ram = &axisrama;
 		zephyr,bootloader-info = &boot_info0;
 	};
 	/* Reserve the final 1 KiB; backup_sram owns hardware initialization. */
@@ -98,24 +104,45 @@
 	status = "okay";
 };
 
-&axisram12 {
-	/* Map AXISRAM child addresses to the 0x24000000 CPU alias. */
-	ranges = <0x34000000 0x24000000 DT_SIZE_K(3840)>;
+&axisram1 {
+	compatible = "mmio-sram";
+	/delete-property/ zephyr,memory-region;
+};
+
+&axisram2 {
+	compatible = "mmio-sram";
+	/delete-property/ zephyr,memory-region;
 };
 
 &axisram3 {
+	/* Keep RAMCFG initialization, without a second linker/MPU region. */
+	compatible = "mmio-sram";
+	/delete-property/ zephyr,memory-region;
+	/delete-property/ zephyr,memory-attr;
 	status = "okay";
 };
 
 &axisram4 {
+	/* Keep RAMCFG initialization, without a second linker/MPU region. */
+	compatible = "mmio-sram";
+	/delete-property/ zephyr,memory-region;
+	/delete-property/ zephyr,memory-attr;
 	status = "okay";
 };
 
 &axisram5 {
+	/* Keep RAMCFG initialization, without a second linker/MPU region. */
+	compatible = "mmio-sram";
+	/delete-property/ zephyr,memory-region;
+	/delete-property/ zephyr,memory-attr;
 	status = "okay";
 };
 
 &axisram6 {
+	/* Keep RAMCFG initialization, without a second linker/MPU region. */
+	compatible = "mmio-sram";
+	/delete-property/ zephyr,memory-region;
+	/delete-property/ zephyr,memory-attr;
 	status = "okay";
 };
 
@@ -190,4 +217,22 @@
 &mac {
 	/delete-property/ nvmem-cells;
 	/delete-property/ nvmem-cell-names;
+};
+
+/* CACHEAXI and VENCRAM are reserved for the application's system RAM. */
+&npu {
+	status = "disabled";
+};
+
+&npu_cache {
+	status = "disabled";
+};
+
+&venc {
+	status = "disabled";
+};
+
+&venc_ram {
+	/* Initialized by system_sram; never expose a second allocator alias. */
+	status = "disabled";
 };

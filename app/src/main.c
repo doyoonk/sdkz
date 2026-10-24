@@ -300,11 +300,7 @@ static int get_date_time(const struct device *rtc)
 
 #define APP_SRAM_AHBSRAM (IS_ENABLED(CONFIG_STM32N6_EXTRA_SRAM) && \
 	DT_NODE_HAS_STATUS(DT_NODELABEL(ahbsram), okay))
-#define APP_SRAM_VENCRAM (IS_ENABLED(CONFIG_STM32N6_EXTRA_SRAM) && \
-	DT_NODE_HAS_STATUS(DT_NODELABEL(venc_ram), okay) && \
-	DT_NODE_HAS_STATUS(DT_NODELABEL(venc), disabled))
-#define APP_SRAM_EXTRA (APP_SRAM_AHBSRAM || \
-	APP_SRAM_VENCRAM)
+#define APP_SRAM_EXTRA APP_SRAM_AHBSRAM
 
 #if APP_SRAM_DTCM || APP_SRAM_ITCM || APP_SRAM_EXTRA
 static int sram_add_region(uintptr_t start, uintptr_t base, uintptr_t end, const char *name,
@@ -494,9 +490,6 @@ static int sram_pools_init(void)
 		return -ENODEV;
 	}
 	APP_SRAM_ADD_DEVICE(DT_NODELABEL(ahbsram), DT_PARENT(DT_NODELABEL(ahbsram1)));
-#endif
-#if APP_SRAM_VENCRAM
-	APP_SRAM_ADD_DEVICE(DT_NODELABEL(venc_ram), DT_PARENT(DT_NODELABEL(venc_ram)));
 #endif
 	return 0;
 #elif defined(CONFIG_HU_PALLOC)

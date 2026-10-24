@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 HU Inc.
+ * Copyright (c) 2025 HU Inc. All rights reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -35,6 +35,7 @@
 	};
 
 	chosen {
+		zephyr,sram = &axisrama;
 		zephyr,dtcm = &dtcm;
 		zephyr,itcm = &itcm;
 		micropy,console = &cdc_acm_uart1;
@@ -96,7 +97,6 @@
         status = "disabled";
 };
 
-/* One 32 KiB heap region, backed by two independently clocked banks. */
 &ahbsram {
 	status = "okay";
 };
@@ -109,12 +109,7 @@
 	status = "okay";
 };
 
-/* Release the video encoder SRAM for the selected heap. */
-&venc {
-	status = "disabled";
-};
-
-&venc_ram {
+&axisrama {
 	status = "okay";
 };
 

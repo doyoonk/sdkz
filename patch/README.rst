@@ -37,3 +37,39 @@ If a patch is already present, ``git apply --reverse --check`` succeeds; do not
 apply it twice. Recheck patches after updating dependency revisions. The older
 ``zephyr-202601031453.patch`` is historical and is not part of this baseline;
 do not apply its backup-domain reference-count workaround to this baseline.
+
+STM32N6 contiguous system RAM
+----------------------------
+
+No additional Zephyr patch is required for CACHEAXI RAM and VENCRAM system
+SRAM. The SDK supplies the ``st,stm32n6-system-sram`` devicetree binding,
+``CONFIG_STM32N6_SYSTEM_SRAM`` in ``drivers/memc/Kconfig``, and initialization
+in the existing ``drivers/memc/stm32n6_extra_sram.c`` driver.
+
+The board's common overlay enables ``st,stm32n6-system-sram``. MCUboot defaults
+to ``CONFIG_STM32N6_SYSTEM_SRAM=y``. The initializer preserves RAM contents,
+requires the NPU, NPU cache and VENC to remain disabled, and runs before
+MCUboot copies or starts the application. The application does not repeat
+this initialization by default; it can explicitly enable the same option.
+AXISRAM3-6 continue to use Zephyr's existing RAMCFG initialization through
+their enabled DTS nodes.
+
+The SDK ``st/n6/stm32n657x0-sram.dtsi`` defines ``axisrama`` at
+``0x24000000`` with 4224 KiB, including CACHEAXI RAM and VENCRAM, and
+``axisramb`` at ``0x24180400`` with 511 KiB. The application enables
+``axisrama`` and selects it as ``zephyr,sram``. The common overlay selects
+``axisrama`` as ``mcuboot,image-ram``. Both FSBL and SB overlays enable
+``axisramb`` and select it as ``zephyr,sram``.
+
+VENCRAM is not also registered with the shared heap. The unused end of
+primary RAM is available to libc malloc. Although the image RAM window
+covers 4224 KiB, image loading must not overwrite the running bootloader.
+Program the updated MCUboot before using the expanded application RAM.
+A direct debugger launch must provide equivalent memory initialization
+before starting the application.
+
+The upstream STM32N6 ``ram_check.ld`` still derives its boundary from
+``axisram2`` at the secure alias. With the application at ``0x24000000``,
+that assertion does not enforce the physical bootloader boundary. Check
+the complete RAM-loaded image, including its header and TLVs, against
+``0x24180400`` when changing image size or load address.
