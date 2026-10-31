@@ -81,7 +81,7 @@ Hardware test
 
 Build the standalone hardware test from the west workspace::
 
-    west build -b stm32n6570_dk sdk/tests/drivers/sensor/stm32n6_dts -d builds/stm32n6570_dk/die-temp-test
+    west build -b stm32n6570_dk sdk/tests/drivers/sensor/stm32n6_dts -d build/stm32n6570_dk/die-temp-test
 
 The test checks readiness, pre-fetch and unsupported-channel errors, and
 repeated real conversions. Linker wrappers additionally inject a conversion

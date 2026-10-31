@@ -16,7 +16,7 @@ Build `sdk/app`, not this directory. For example, from the west workspace:
 
 ```sh
 west build -b stm32n6570_dk --shield st_b_cams_imx_mb1854 sdk/app \
-  -d builds/stm32n6570_dk/app
+  -d build/stm32n6570_dk/app
 ```
 
 With `CONFIG_MICROPYTHON_STANDALONE=n` (the default), the full port registers

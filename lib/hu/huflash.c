@@ -66,13 +66,13 @@ struct fixed_partition
             (HU_PARTITION_ENTRIES(node)), ())), ())
 
 static const struct fixed_partition fixed_partitions[] = {
-#if FIXED_PARTITION_EXISTS(boot_partition)
+#if PARTITION_EXISTS(boot_partition)
     { "boot", HU_PARTITION_ID(DT_NODELABEL(boot_partition)) },
 #endif
-#if FIXED_PARTITION_EXISTS(slot0_partition)
+#if PARTITION_EXISTS(slot0_partition)
     { "slot0", HU_PARTITION_ID(DT_NODELABEL(slot0_partition)) },
 #endif
-#if FIXED_PARTITION_EXISTS(slot1_partition)
+#if PARTITION_EXISTS(slot1_partition)
     { "slot1", HU_PARTITION_ID(DT_NODELABEL(slot1_partition)) },
 #endif
     DT_FOREACH_STATUS_OKAY(zephyr_mapped_partition, HU_MAPPED_ENTRY)

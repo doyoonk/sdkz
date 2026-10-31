@@ -62,15 +62,18 @@ cd zephyr && python -m pip install --upgrade pip && python -m pip install @((wes
 
 ### Building and running
 
+To build the application, run the following command:
+
 ```shell
 cd ~/sdkz
 . .venv/bin/activate
 ```
 
-To build the application, run the following command:
+Build outputs use `build/<board_name>/<variant>` under the workspace root.
+Specify the output directory with `west build -d`.
 
 ```shell
-west build -b $BOARD sdk/app -- '-DCONFIG_BOOTLOADER_MCUBOOT=y -DCONFIG_MCUBOOT_SIGNATURE_KEY_FILE="$VIRTUAL_ENV/../etc/ssl/certs/mcuboot_sign-rsa-2048.pem"'
+west build -b $BOARD sdk/app -d build/$BOARD/app -- -DCONFIG_BOOTLOADER_MCUBOOT=y -DCONFIG_MCUBOOT_SIGNATURE_KEY_FILE="$VIRTUAL_ENV/../etc/ssl/certs/mcuboot_sign-rsa-2048.pem"
 ```
 
 where `$BOARD` is the target board.
@@ -83,18 +86,42 @@ A sample debug configuration is also provided. To apply it, run the following
 command:
 
 ```shell
-west build -b $BOARD sdk/app -- '-DEXTRA_CONF_FILE=debug.conf -DCONFIG_BOOTLOADER_MCUBOOT=y -DCONFIG_MCUBOOT_SIGNATURE_KEY_FILE="$VIRTUAL_ENV/../etc/ssl/certs/mcuboot_sign-rsa-2048.pem"'
-```
-
-```shell
-# for mcuboot of stm32n6570_dk
-west build -b stm32n6570_dk//fsbl ./bootloader/mcuboot/boot/zephyr -d ./build/stm32n6570_dk/mcuboot -p -- -DEXTRA_CONF_FILE="$VIRTUAL_ENV/../sdk/app/boards/stm32n6570_dk_stm32n657xx_fsbl.conf" -DEXTRA_DTC_OVERLAY_FILE="$VIRTUAL_ENV/../sdk/app/boards/stm32n6570_dk_stm32n657xx_fsbl.overlay"
+west build -b $BOARD sdk/app -d build/$BOARD/app -- -DEXTRA_CONF_FILE=debug.conf -DCONFIG_BOOTLOADER_MCUBOOT=y -DCONFIG_MCUBOOT_SIGNATURE_KEY_FILE="$VIRTUAL_ENV/../etc/ssl/certs/mcuboot_sign-rsa-2048.pem"
 ```
 
 Once you have built the application, run the following command to flash it:
 
 ```shell
-west flash
+west flash -d build/$BOARD/app
+```
+
+### STM32N6570-DK
+
+Run these commands from `~/sdkz`. The variants are `app`, `fsbl` (MCUboot),
+and `sb` (MCUboot serial recovery).
+
+```shell
+# Application
+west build -b stm32n6570_dk --shield st_b_cams_imx_mb1854 sdk/app -d build/stm32n6570_dk/app
+
+# MCUboot FSBL
+west build -b stm32n6570_dk//fsbl bootloader/mcuboot/boot/zephyr -d build/stm32n6570_dk/fsbl -- \
+  -DEXTRA_CONF_FILE="$VIRTUAL_ENV/../sdk/app/boards/stm32n6570_dk_stm32n657xx_fsbl.conf" \
+  -DEXTRA_DTC_OVERLAY_FILE="$VIRTUAL_ENV/../sdk/app/boards/stm32n6570_dk_stm32n657xx_fsbl.overlay"
+
+# MCUboot serial recovery
+west build -b stm32n6570_dk//sb bootloader/mcuboot/boot/zephyr -d build/stm32n6570_dk/sb -- \
+  -DEXTRA_CONF_FILE="$VIRTUAL_ENV/../sdk/app/boards/stm32n6570_dk_stm32n657xx_sb.conf" \
+  -DEXTRA_DTC_OVERLAY_FILE="$VIRTUAL_ENV/../sdk/app/boards/stm32n6570_dk_stm32n657xx_sb.overlay"
+```
+
+After building the application and FSBL, merge their compilation databases:
+
+```shell
+jq -s 'add' \
+  build/stm32n6570_dk/app/compile_commands.json \
+  build/stm32n6570_dk/fsbl/compile_commands.json \
+  > build/compile_commands.json
 ```
 
 ### Testing
@@ -110,8 +137,7 @@ west twister -T tests --integration
 Sysbuild to build Application together with the MCUboot bootloader:
 
 ```shell
-cd ~/sdkz
-west build -b jz_f407vet6 sdk/app --sysbuild -d sysbuild/jz_f407vet6
+west build -b jz_f407vet6 sdk/app --sysbuild -d build/jz_f407vet6/sysbuild
 ```
 
 ### MCUboot Building for jz_f407vet6
@@ -119,7 +145,6 @@ west build -b jz_f407vet6 sdk/app --sysbuild -d sysbuild/jz_f407vet6
 To build the MCUboot, run the following command:
 
 ```shell
-cd ~/sdkz
 west build -b jz_f407vet6//mcuboot bootloader/mcuboot/boot/zephyr -d build/jz_f407vet6/mcuboot
 ```
 
@@ -128,7 +153,6 @@ west build -b jz_f407vet6//mcuboot bootloader/mcuboot/boot/zephyr -d build/jz_f4
 To build the App, run the following command:
 
 ```shell
-cd ~/sdkz
 west build -b jz_f407vet6 sdk/app -d build/jz_f407vet6/app
 ```
 

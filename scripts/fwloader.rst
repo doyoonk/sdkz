@@ -4,9 +4,9 @@ HU firmware loader
 Run from the workspace root. Python 3.10+ and ``pyserial`` are required::
 
   python -m pip install pyserial
-  python sdk/scripts/fwloader.py --port COM3 --baud 115200 --partition slot0 builds/stm32n6570_dk/app/zephyr/zephyr.signed.confirmed.hex
-  python sdk/scripts/bin2hex.py builds/stm32n6570_dk/mcuboot/zephyr/zephyr.signed.bin builds/stm32n6570_dk/mcuboot/zephyr/zephyr.signed.hex
-  python sdk/scripts/fwloader.py --port COM3 --partition boot builds/stm32n6570_dk/mcuboot/zephyr/zephyr.signed.hex --reboot
+  python sdk/scripts/fwloader.py --port COM3 --baud 115200 --partition slot0 build/stm32n6570_dk/app/zephyr/zephyr.signed.confirmed.hex
+  python sdk/scripts/bin2hex.py build/stm32n6570_dk/fsbl/zephyr/zephyr.signed.bin build/stm32n6570_dk/fsbl/zephyr/zephyr.signed.hex
+  python sdk/scripts/fwloader.py --port COM3 --partition boot build/stm32n6570_dk/fsbl/zephyr/zephyr.signed.hex --reboot
 
 Use the HU protocol port: on the current board COM3 is HU USB CDC, COM5 is
 MicroPython and COM15 is the Zephyr shell/ST-Link console. Linux serial port
@@ -96,8 +96,8 @@ For STM32N6570-DK MCUboot, the existing Zephyr SoC build creates
 ``zephyr.signed.bin`` with the STM32 boot header. Generate the HEX separately::
 
   export PATH=/opt/st/stm32cubeclt_1.21.0/STM32CubeProgrammer/bin:$PATH
-  west build -d builds/stm32n6570_dk/mcuboot
-  python sdk/scripts/bin2hex.py builds/stm32n6570_dk/mcuboot/zephyr/zephyr.signed.bin builds/stm32n6570_dk/mcuboot/zephyr/zephyr.signed.hex
+  west build -d build/stm32n6570_dk/fsbl
+  python sdk/scripts/bin2hex.py build/stm32n6570_dk/fsbl/zephyr/zephyr.signed.bin build/stm32n6570_dk/fsbl/zephyr/zephyr.signed.hex
 
 SDK CMake no longer generates this MCUboot HEX or selects it for the runner.
 Any old ``zephyr.signed.hex`` left in a build directory must be regenerated

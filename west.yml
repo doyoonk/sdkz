@@ -89,9 +89,9 @@ manifest:
     - name: zxc
       path: modules/lib/zxc
       revision: main
-      url: https://github.com/doyoonk/zxc.git
+      url: git@github.com:/doyoonk/zxc.git
 
     - name: zbc
       path: modules/lib/zbc
       revision: main
-      url: https://github.com/doyoonk/zbc.git
+      url: git@github.com:/doyoonk/zbc.git

@@ -218,7 +218,7 @@ Validation
 ----------
 
 Build with ``west build -b stm32n6570_dk --shield st_b_cams_imx_mb1854 ./sdk/app
--d ./builds/stm32n6570_dk/app``. Host protocol/color tests run with
+-d ./build/stm32n6570_dk/app``. Host protocol/color tests run with
 ``python -m unittest discover -s sdk/scripts -p test_camera_capture.py -v``.
 
 Barcode protocol tests are included with ``-p 'test_camera*.py'``. The host C
